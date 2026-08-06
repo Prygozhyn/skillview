@@ -126,7 +126,7 @@ def row(**kw):
         surfaces=[], activation="auto", prereqs=[], needs_running=[],
         version="", install_path="", source_repo="", source_url="",
         source_path="", folder_hash="", installed_at="", description="",
-        readme="", subcommands=[], parent="", purpose=[], size=0,
+        readme="", subcommands=[], parent="", purpose=[], size=0, marketplace="",
         # v2 keeps a slot here rather than reshaping the row later.
         usage=None,
     )
@@ -180,6 +180,7 @@ def scan_plugins(cdir):
             subs = ship_manifest(root)
             rows.append(row(
                 name=pname, kind="plugin", mechanism="marketplace",
+                marketplace=mktname,
                 author=author.get("name", "") or mktname,
                 version=e.get("version", ""), install_path=str(root),
                 source_repo=repo,

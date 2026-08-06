@@ -49,11 +49,30 @@ For plugins, "sub-commands" means everything the plugin ships — bundled skills
 
 **Generate descriptions** — shells out to the `claude` CLI already on your machine (no API key, no setup) and writes one plain sentence per tool into `descriptions.json`. That file is plain JSON: edit any line by hand and your version is kept. If the CLI isn't installed or isn't logged in, the table falls back to raw descriptions and says so.
 
+## Running updates — off by default
+
+Out of the box Skillview only reads. It shows you the update command and you run it yourself. To let it run updates for you:
+
+```bash
+python3 app.py --enable-updates
+```
+
+Or set `"updates": true` in `config.json`, or `SKILLVIEW_ENABLE_UPDATES=1`.
+
+**Why it's opt-in.** Everything else here only reads files and makes GET requests. Running updates means a local web server executing shell commands, which is a categorically different thing to leave running. Off by default means a clone you're merely looking at has no write surface at all — the endpoint refuses, and the button never appears.
+
+All of that lives in one file, [`updater.py`](updater.py), so you can audit the entire write surface in a couple of minutes. What it guarantees, and what [`test_updater.py`](test_updater.py) asserts:
+
+- **No shell, ever.** Every command is an argv list run with `shell=False`, so quoting, globbing, pipes and `;` have no meaning.
+- **The page cannot supply a command.** A request names an item; that name is looked up in the live inventory and the *row's own* values build the argv. A name matching no row is refused before anything runs.
+- **Only known mechanisms have commands.** Anything else is refused with the manual instruction rather than guessed at.
+- **One at a time**, under a lock, with a timeout.
+
+Plugin updates change files on disk but the running Claude Code session keeps the old copy, so those report **restart required** rather than claiming success.
+
 ## What it deliberately doesn't do
 
-**It does not run updates.** It shows you the command. Executing updates means a local web server that shells out, which is a different security posture than one that only reads — that's the next version, behind its own review.
-
-It also doesn't track usage, manage dependencies, or edit skills. It reads and reports.
+It doesn't track usage, manage dependencies, or edit skills. It reads, reports, and — if you ask it to — runs the ecosystem's own update command.
 
 ## Honest limits
 
@@ -82,8 +101,10 @@ app.py            HTTP shim — routes to pure functions, nothing else
 inventory.py      filesystem: read every mechanism into one row shape
 upstream.py       network: update status per source repo
 describe.py       subprocess: claude CLI → cached descriptions
+updater.py        the only code that can change anything. Off by default
 ui.html           the whole frontend, vanilla, no CDN
 test_inventory.py python3 test_inventory.py
+test_updater.py   python3 test_updater.py
 ```
 
 `app.py` is intentionally thin so the web layer stays replaceable.
@@ -91,8 +112,10 @@ test_inventory.py python3 test_inventory.py
 ## Tests
 
 ```bash
-python3 test_inventory.py
+python3 test_inventory.py && python3 test_updater.py
 ```
+
+`test_updater.py` runs against a stubbed subprocess: it asserts what the updater *asked* to run, so the safety properties are checked without anything executing. `python3 updater.py` prints the exact command it would run for every installed item, and runs nothing.
 
 Fixture-driven, no framework. Covers the empty machine, each mechanism in isolation, an unrecognised installer, and a `SKILL.md` whose frontmatter real YAML parsers reject — that last one exists in the wild and takes down other tools.
 

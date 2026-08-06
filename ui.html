@@ -237,6 +237,9 @@ ul.pack li.off .badge{color:var(--stone);font-weight:500;text-transform:none;let
   font-family:var(--mono);font-size:12.5px;overflow-x:auto;white-space:pre;
 }
 .note{color:var(--stone);font-size:13px;margin:8px 0 0}
+.ok-line{color:var(--success);font-weight:500;margin:10px 0 0}
+.err-line{color:var(--error);font-weight:500;margin:10px 0 0}
+#uplog .cmd{max-height:220px;overflow:auto;white-space:pre-wrap;font-size:12px}
 a{color:var(--primary)}
 
 /* ── responsive ─────────────────────────────────────────────────────────── */
@@ -316,7 +319,8 @@ const VIEWS = {
   "Needs setup":      r => r.activation === "needs starting",
   "Update available": r => r.update === "update available",
 };
-let ITEMS = [], VIEW = "Everything", SORT = {key:"name", dir:1}, CLI = true, LAST_FOCUS = null;
+let ITEMS = [], VIEW = "Everything", SORT = {key:"name", dir:1}, CLI = true,
+    UPDATES = false, LAST_FOCUS = null;
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
@@ -339,7 +343,7 @@ async function load(url = "/api/items") {
   if (url.includes("refresh")) { btn.disabled = true; btn.textContent = "Checking…"; }
   try {
     const d = await (await fetch(url)).json();
-    ITEMS = d.items || []; CLI = d.cli;
+    ITEMS = d.items || []; CLI = d.cli; UPDATES = !!d.updates;
   } catch (e) {
     ITEMS = []; $("#empty").innerHTML = "<b>Can't reach the local server</b>Is app.py still running?";
   }
@@ -445,9 +449,14 @@ function openDetail(i) {
     html += `<h3>Requires running</h3><p>${r.needs_running.map(esc).join(", ")} must be open before this works.</p>`;
   if (r.prereqs?.length)
     html += `<h3>Set up first</h3>` + r.prereqs.map(c => `<code class="cmd">${esc(c)}</code>`).join("");
-  if (r.update_command)
-    html += `<h3>To update</h3><code class="cmd">${esc(r.update_command)}</code>
-             <p class="note">Skillview shows the command; running it from here lands in v2.</p>`;
+  if (r.update_command) {
+    html += `<h3>To update</h3><code class="cmd">${esc(r.update_command)}</code>`;
+    html += UPDATES
+      ? `<p><button id="doupdate" class="primary" data-name="${esc(r.name)}">Run this update</button></p>
+         <div id="uplog"></div>`
+      : `<p class="note">Skillview is running read-only. Start it with
+         <code>--enable-updates</code> to run this from here.</p>`;
+  }
 
   const subs = r.subcommands || [];
   if (subs.length) {
@@ -529,6 +538,27 @@ $("#rows").onkeydown = e => {
 $("#clear").onclick = () => {
   ["#q", "#fmech", "#fact", "#fauthor"].forEach(s => $(s).value = "");
   render(); $("#q").focus();
+};
+$("#detail").onclick = async e => {
+  const b = e.target.closest("#doupdate"); if (!b) return;
+  const log = $("#uplog");
+  b.disabled = true; b.textContent = "Running…";
+  log.innerHTML = `<p class="note">This can take a minute.</p>`;
+  let d;
+  try {
+    d = await (await fetch("/api/update", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: b.dataset.name }),
+    })).json();
+  } catch (err) { d = { ok: false, error: "The request failed." }; }
+  b.disabled = false; b.textContent = "Run this update";
+  log.innerHTML =
+    (d.ok ? `<p class="ok-line">Updated.</p>` : `<p class="err-line">${esc(d.error)}</p>`) +
+    (d.restart_required
+      ? `<p class="note"><b>Restart Claude Code</b> for this to take effect —
+         the files changed on disk, but the running session still has the old copy.</p>` : "") +
+    (d.log ? `<code class="cmd">${esc(d.log)}</code>` : "");
+  if (d.ok) load("/api/refresh");
 };
 $("#scrim").onclick = closeDetail;
 $("#close").onclick = closeDetail;
