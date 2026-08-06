@@ -237,6 +237,18 @@ ul.pack li.off .badge{color:var(--stone);font-weight:500;text-transform:none;let
   font-family:var(--mono);font-size:12.5px;overflow-x:auto;white-space:pre;
 }
 .note{color:var(--stone);font-size:13px;margin:8px 0 0}
+.actions{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  background:var(--surface);border:1px solid var(--hairline);border-radius:var(--r-lg);
+  padding:14px 16px;margin:0 0 18px;
+}
+.actions .state-line{font-size:14px;font-weight:500}
+.actions.readonly{color:var(--slate);font-size:13px;display:block}
+.actions.readonly code{
+  font-family:var(--mono);font-size:12px;background:var(--code-bg);
+  border:1px solid var(--hairline);border-radius:4px;padding:1px 5px;
+}
+#uplog{margin:-8px 0 20px}
 .ok-line{color:var(--success);font-weight:500;margin:10px 0 0}
 .err-line{color:var(--error);font-weight:500;margin:10px 0 0}
 #uplog .cmd{max-height:220px;overflow:auto;white-space:pre-wrap;font-size:12px}
@@ -441,6 +453,7 @@ function openDetail(i) {
 
   let html = `<h2 id="dtitle">${esc(r.name)}</h2>
     <div class="by">${r.is_local ? "Written by you" : "by " + esc(r.author || "unknown")}</div>
+    ${actionBar(r)}
     <p class="blurb ${r.plain_generated ? "" : "rawnote"}">${esc(r.plain || "No description available.")}</p>
     ${r.plain_generated ? "" : '<p class="note">Raw description from the file. Use <b>Generate descriptions</b> for a plain-English one.</p>'}
     <dl class="fields">${f.join("")}</dl>`;
@@ -449,29 +462,9 @@ function openDetail(i) {
     html += `<h3>Requires running</h3><p>${r.needs_running.map(esc).join(", ")} must be open before this works.</p>`;
   if (r.prereqs?.length)
     html += `<h3>Set up first</h3>` + r.prereqs.map(c => `<code class="cmd">${esc(c)}</code>`).join("");
-  if (r.update_command) {
-    html += `<h3>To update</h3><code class="cmd">${esc(r.update_command)}</code>`;
-    if (!UPDATES) {
-      html += `<p class="note">Skillview is running read-only. Start it with
-        <code>--enable-updates</code> to run this from here.</p>`;
-    } else {
-      // Only push the action when there is something to fetch. The ecosystem
-      // command re-checks and no-ops anyway, so running it on a current item is
-      // safe — just a pointless round trip. Offered quietly rather than removed,
-      // because this status is only as fresh as the last refresh.
-      const stale = r.update === "update available";
-      const unchecked = !r.update || r.update === "unknown";
-      html += unchecked
-        ? `<p class="note">Not checked yet — run <b>Check for updates</b> first, so this
-           only downloads if something has actually changed.</p>
-           <p><button id="doupdate" data-name="${esc(r.name)}">Update anyway</button></p>`
-        : stale
-          ? `<p><button id="doupdate" class="primary" data-name="${esc(r.name)}">Run this update</button></p>`
-          : `<p class="note">Already up to date as of the last check — nothing to download.</p>
-             <p><button id="doupdate" data-name="${esc(r.name)}">Re-check and update</button></p>`;
-      html += `<div id="uplog"></div>`;
-    }
-  }
+  if (r.update_command)
+    html += `<h3>The update command</h3><code class="cmd">${esc(r.update_command)}</code>
+             <p class="note">Run it yourself if you'd rather not use the button above.</p>`;
 
   const subs = r.subcommands || [];
   if (subs.length) {
@@ -498,6 +491,26 @@ function openDetail(i) {
   $("#scrim").classList.add("on");
   $("#close").focus();
 }
+/* The primary action sits directly under the title. It was previously below the
+   description, the field list and the prerequisites, which is three scrolls past
+   the point of opening the panel. */
+function actionBar(r) {
+  if (!r.update_command) return "";
+  if (!UPDATES) return `<div class="actions readonly">
+    <span>Running read-only — start with <code>--enable-updates</code> to update from here.</span></div>`;
+
+  const stale = r.update === "update available";
+  const unchecked = !r.update || r.update === "unknown";
+  const state = stale ? `<span class="s-act"><span class="dot"></span>Update available</span>`
+    : unchecked ? `<span class="s-rest">Not checked yet</span>`
+    : `<span class="s-ok">Up to date — nothing to download</span>`;
+  const label = stale ? "Run this update" : unchecked ? "Update anyway" : "Re-check and update";
+  return `<div class="actions">
+      <div class="state-line">${state}</div>
+      <button id="doupdate" class="${stale ? "primary" : ""}" data-name="${esc(r.name)}">${label}</button>
+    </div><div id="uplog"></div>`;
+}
+
 /* The pack this skill came from — fetched when the panel opens rather than
    during refresh, because most packs are never looked at. */
 async function loadPack(r) {
@@ -516,10 +529,15 @@ async function loadPack(r) {
       esc(d.error || "Nothing else ships from this repository.")}</p>`;
     return;
   }
-  const have = skills.filter(s => s.installed).length;
-  box.innerHTML = `<h3>Also in this pack</h3>
-    <p class="packnote">${esc(r.source_repo)} ships ${skills.length} skills —
-      you have ${have}. The rest are not installed.</p>
+  const have = skills.filter(s => s.installed).length, left = skills.length - have;
+  const heading = left ? "Also in this pack" : "Everything in this pack";
+  const summary = left === 0
+    ? `You have all ${skills.length} skills ${esc(r.source_repo)} ships.`
+    : have === 0
+      ? `${esc(r.source_repo)} ships ${skills.length} skills. None of the others are installed.`
+      : `${esc(r.source_repo)} ships ${skills.length} skills — you have ${have},
+         and ${left} ${left === 1 ? "is" : "are"} not installed.`;
+  box.innerHTML = `<h3>${heading}</h3><p class="packnote">${summary}</p>
     <ul class="pack">` + skills.map(s => `
       <li class="${s.installed ? "" : "off"}">
         <span class="nm">${esc(s.name)}</span>
