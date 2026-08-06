@@ -340,7 +340,10 @@ $("#rows").onclick = e => {
 ["#q", "#fmech", "#fact", "#fauthor"].forEach(s => $(s).oninput = render);
 $("#scrim").onclick = closeDetail;
 $("#close").onclick = closeDetail;
-document.onkeydown = e => e.key === "Escape" && closeDetail();
+// Must not return a value: a DOM0 handler returning false calls
+// preventDefault(), which silently swallows every keystroke on the page —
+// including typing into the search box.
+document.onkeydown = e => { if (e.key === "Escape") closeDetail(); };
 $("#refresh").onclick = () => load("/api/refresh");
 $("#describe").onclick = async () => {
   const b = $("#describe"); b.disabled = true; b.textContent = "Writing…";
