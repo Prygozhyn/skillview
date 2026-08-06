@@ -1,0 +1,31 @@
+# Ignore all JSON by default — the next token cache, export, or credential file
+# gets caught automatically instead of relying on someone remembering to add it.
+# Config that must ship is re-admitted explicitly below.
+*.json
+!config.json
+
+# Generated locally. Describes YOUR installed tools, which means it names your
+# private skills — the sharpest leak vector in this repo.
+descriptions.json
+
+# One-off and scratch scripts, which is where real data ends up.
+apply_*.py
+scratch_*.py
+*_local.py
+
+# Internal planning docs. They name private skills and personal paths, so they
+# are excluded from the public repo. Remove these two lines only if you decide
+# the requirements history should ship — read them first.
+TODO.md
+PRD.md
+
+# Screenshots — any capture of a real dashboard shows real installed skills.
+*.png
+*.jpg
+*.jpeg
+
+__pycache__/
+*.pyc
+.venv/
+venv/
+.DS_Store

@@ -1,0 +1,7 @@
+{
+  "port": 8477,
+  "_comment": {
+    "port": "the local UI port. Bound to 127.0.0.1 only, never exposed.",
+    "identity": "There is deliberately no user or path setting here. Locations come from $HOME and CLAUDE_CONFIG_DIR so the tool works unchanged on any machine."
+  }
+}
