@@ -56,12 +56,38 @@ def save(cache):
 
 
 def key(row):
-    return f"{row['name']}@{row['version'] or '-'}"
+    """Cache key that actually changes when the tool changes.
+
+    Version alone is not enough: skills.sh installs carry no version at all, so
+    keying on it alone pins every one of them to a single bucket and their
+    descriptions never refresh after an update. The folder hash moves whenever
+    the skill's content does, which is exactly the invalidation we want.
+    """
+    stamp = row.get("version") or (row.get("folder_hash") or "")[:12] or "-"
+    return f"{row['name']}@{stamp}"
+
+
+def migrate(cache, rows):
+    """Carry entries forward when a row gains a stamp it previously lacked.
+
+    Without this, changing the key silently throws away every cached sentence
+    and bills the user for a regeneration they did not ask for.
+    """
+    moved = 0
+    for r in rows:
+        new, old = key(r), f"{r['name']}@-"
+        if new != old and old in cache and new not in cache:
+            cache[new] = cache.pop(old)
+            moved += 1
+    return moved
 
 
 def apply(rows, cache=None):
     """Attach `plain` to each row. Falls back to frontmatter, flagged as such."""
-    cache = load() if cache is None else cache
+    owned = cache is None
+    cache = load() if owned else cache
+    if owned and migrate(cache, rows):
+        save(cache)
     for r in rows:
         hit = cache.get(key(r))
         r["plain"] = hit or r.get("description", "")
