@@ -20,9 +20,12 @@ TODO.md
 PRD.md
 
 # Screenshots — any capture of a real dashboard shows real installed skills.
+# docs/ is the exception: those are curated, filtered to third-party skills
+# only, and reviewed before committing.
 *.png
 *.jpg
 *.jpeg
+!docs/*.png
 
 __pycache__/
 *.pyc

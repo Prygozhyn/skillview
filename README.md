@@ -1,10 +1,28 @@
 # Skillview
 
-One table for every skill, plugin, and tool installed for your coding agent — whatever installed it.
+**One table for every Claude Code skill, plugin and MCP server you've installed — whatever installed it.**
 
-Capability arrives through unrelated mechanisms that don't know about each other: plugin marketplaces, `skills.sh`, package managers, and skills you wrote yourself. Each has its own storage location, its own metadata, and its own update command. Nothing shows them together, so tools get installed, forgotten, and left unused during the exact task they were installed for.
+What each one actually does, how to invoke it, and whether it's fallen behind upstream. Runs locally, has no dependencies, and only reads unless you tell it otherwise.
 
-This shows you what you have, what each thing actually does for you, how to invoke it, and whether it's fallen behind upstream.
+![Skillview listing installed skills, with plain-English descriptions, activation mode and update status](docs/skillview.png)
+
+## The problem
+
+Your agent's capability arrives through mechanisms that don't know about each other — plugin marketplaces, `skills.sh`, package managers, MCP config, and the skills you wrote yourself. Each has its own storage location, its own metadata format, and its own update command.
+
+Nothing shows them together. So things get installed, forgotten, and then sit unused during the exact task they were installed for. That's the cost this fixes — not disk space.
+
+## What you get
+
+- **Everything in one table** — four install mechanisms, one list, no terminal.
+- **Plain English, not keyword soup.** A `SKILL.md` description exists to make a model trigger the skill. Skillview rewrites it into what the thing does *for you*.
+- **How to actually use it.** Every sub-command a plugin ships — bundled skills, slash commands, agents, hooks, MCP servers — listed as numbered one-liners.
+- **What's gone stale**, across every mechanism, in one refresh. One network call per source repo.
+- **What you didn't install.** A pack ships 13 skills and you took 3? It shows the other 10.
+- **Who wrote it** — derived from whether an upstream exists, so your own skills are correctly marked as yours to maintain.
+- **Can I use this right now?** Fires automatically, needs a slash command, or needs something started first — with the exact command.
+
+Zero dependencies. Python 3.8+ and the standard library. Binds to `127.0.0.1`.
 
 ## Run it
 
