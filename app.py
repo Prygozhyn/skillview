@@ -21,11 +21,19 @@ from pathlib import Path
 
 import describe
 import inventory
+import updater
 import upstream
 
 HERE = Path(__file__).parent
 CONFIG = json.loads((HERE / "config.json").read_text()) if (HERE / "config.json").exists() else {}
 PORT = int(os.environ.get("PORT") or CONFIG.get("port", 8477))
+
+# Running update commands is off unless the operator asks for it. A clone that
+# is merely being looked at has no write surface: the endpoint refuses, and the
+# UI never offers the button.
+UPDATES = ("--enable-updates" in sys.argv
+           or CONFIG.get("updates") is True
+           or os.environ.get("SKILLVIEW_ENABLE_UPDATES") == "1")
 
 
 def items(with_upstream=False):
@@ -59,9 +67,9 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(204)
             self.end_headers()
         elif self.path == "/api/items":
-            self._send({"items": items(), "cli": describe.available()})
+            self._send({"items": items(), "cli": describe.available(), "updates": UPDATES})
         elif self.path == "/api/refresh":
-            self._send({"items": items(with_upstream=True), "cli": describe.available()})
+            self._send({"items": items(with_upstream=True), "cli": describe.available(), "updates": UPDATES})
         elif self.path.startswith("/api/catalog"):
             q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
             repo, path = q.get("repo", [""])[0], q.get("path", [""])[0]
@@ -75,11 +83,32 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self._send({"error": "not found"}, 404)
 
+    def _body(self):
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+            return json.loads(self.rfile.read(n) or "{}")
+        except (ValueError, OSError):
+            return {}
+
     def do_POST(self):
         if self.path == "/api/describe":
             rows = inventory.inventory()
             added, err = describe.generate(rows)
             self._send({"added": added, "error": err})
+        elif self.path == "/api/update":
+            if not UPDATES:
+                self._send({"ok": False, "error":
+                            "Updates are disabled. Restart with --enable-updates to allow them."}, 403)
+                return
+            # The request selects a row; it never supplies a command. Anything
+            # that does not match a live inventory row is refused here, before
+            # updater.py is reached.
+            name = self._body().get("name")
+            row = next((r for r in inventory.inventory() if r["name"] == name), None)
+            if row is None:
+                self._send({"ok": False, "error": "No installed item by that name."}, 404)
+                return
+            self._send(updater.update(row))
         else:
             self._send({"error": "not found"}, 404)
 
