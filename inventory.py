@@ -56,17 +56,24 @@ def agents_dir():
 # ---------------------------------------------------------------- parsing
 
 def read_frontmatter(path):
+    """Same as read_frontmatter_text, for a file on disk."""
+    try:
+        return read_frontmatter_text(path.read_text(encoding="utf-8", errors="replace"))
+    except OSError:
+        return {}, ""
+
+
+def read_frontmatter_text(text):
     """Return the top `---` block as a flat dict, plus the body.
 
     Deliberately not a YAML parser. Real YAML chokes on descriptions containing
     a bare `: ` — one skill on this machine does exactly that and it takes down
     `npx skills list`. We only ever need scalar keys, so a line reader is both
     smaller and strictly more robust here.
+
+    Text rather than path, because upstream SKILL.md files are read over the
+    network for the pack catalog and never hit disk.
     """
-    try:
-        text = path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return {}, ""
     if not text.startswith("---"):
         return {}, text
     end = text.find("\n---", 3)

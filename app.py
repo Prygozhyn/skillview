@@ -15,6 +15,7 @@ so swapping the web layer later costs a day and touches nothing else.
 import json
 import os
 import sys
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -61,6 +62,16 @@ class Handler(BaseHTTPRequestHandler):
             self._send({"items": items(), "cli": describe.available()})
         elif self.path == "/api/refresh":
             self._send({"items": items(with_upstream=True), "cli": describe.available()})
+        elif self.path.startswith("/api/catalog"):
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            repo, path = q.get("repo", [""])[0], q.get("path", [""])[0]
+            if not repo or not path:
+                self._send({"error": "repo and path are required", "skills": []}, 400)
+                return
+            rows = inventory.inventory()
+            installed = [r["source_path"] for r in rows
+                         if r["source_repo"] == repo and r["source_path"]]
+            self._send(upstream.catalog(repo, path, installed))
         else:
             self._send({"error": "not found"}, 404)
 

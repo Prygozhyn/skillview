@@ -21,6 +21,7 @@ import json
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 UA = {"User-Agent": "skillview"}
 TIMEOUT = 8
@@ -131,7 +132,8 @@ def _status(r, trees, markets):
 
 
 def _catalog(tree, folder):
-    """Sibling skills the pack ships — cached for v2 (R25), unused by v1 UI."""
+    """Sibling skill folders in the same pack. Names only — descriptions are
+    fetched lazily by catalog(), since most packs are never opened."""
     if not folder or "/" not in folder:
         return []
     parent = folder.rsplit("/", 1)[0]
@@ -139,6 +141,80 @@ def _catalog(tree, folder):
         p.rsplit("/", 1)[1] for p in tree["dirs"]
         if p.startswith(parent + "/") and p.count("/") == folder.count("/")
     )
+
+
+# ------------------------------------------------------- the pack catalog
+
+CATALOG_CACHE = Path(__file__).parent / "catalog.json"
+
+
+def _cache_read():
+    try:
+        return json.loads(CATALOG_CACHE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def catalog(repo, sample_path, installed_paths=()):
+    """Every skill `repo` ships, each flagged installed or not.
+
+    Called when a detail panel opens, not during refresh — most packs are never
+    looked at, and fetching a description per skill for all of them up front
+    would cost far more than it returns.
+
+    One tree call plus one raw file per *uninstalled* skill, in parallel. The
+    result is cached against the tree SHA, so it is re-fetched only when the
+    pack actually changes upstream.
+    """
+    tree = fetch_tree(repo)
+    if not tree:
+        return {"error": "Could not reach the repository.", "skills": []}
+
+    parent = sample_path.rsplit("/", 1)[0] if "/" in sample_path else ""
+    if "/" in parent:
+        parent = parent.rsplit("/", 1)[0]
+    depth = sample_path.count("/")
+    dirs = sorted(p for p in tree["dirs"]
+                  if p.startswith(parent + "/") and p.count("/") == depth - 1)
+    if not dirs:
+        return {"skills": []}
+
+    stamp = tree["dirs"].get(parent, "")
+    cached = _cache_read()
+    hit = cached.get(repo)
+    descs = hit["descriptions"] if hit and hit.get("stamp") == stamp else {}
+
+    missing = [d for d in dirs if d not in descs]
+    if missing:
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            got = dict(zip(missing, pool.map(lambda d: _description(repo, d), missing)))
+        descs.update({k: v for k, v in got.items() if v is not None})
+        cached[repo] = {"stamp": stamp, "descriptions": descs}
+        try:
+            CATALOG_CACHE.write_text(json.dumps(cached, indent=1, sort_keys=True),
+                                     encoding="utf-8")
+        except OSError:
+            pass
+
+    inst = {p.rsplit("/", 1)[0] if p.endswith("SKILL.md") else p for p in installed_paths}
+    return {"skills": [{
+        "name": d.rsplit("/", 1)[1],
+        "path": d,
+        "description": descs.get(d, ""),
+        "installed": d in inst,
+        "url": f"https://github.com/{repo}/tree/HEAD/{d}",
+    } for d in dirs]}
+
+
+def _description(repo, folder):
+    """Pull just the frontmatter description from an upstream SKILL.md."""
+    raw = _get(f"https://raw.githubusercontent.com/{repo}/HEAD/{folder}/SKILL.md",
+               parse_json=False)
+    if not raw:
+        return None
+    from inventory import read_frontmatter_text
+    meta, _ = read_frontmatter_text(raw)
+    return meta.get("description", "")
 
 
 if __name__ == "__main__":
