@@ -81,7 +81,15 @@ def main():
         for r in items(with_upstream="--net" in sys.argv):
             print(f"{r['name']:28} {r['mechanism']:12} {r.get('update', ''):16} {r['plain'][:60]}")
         return
-    server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
+    try:
+        server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
+    except OSError as e:
+        # Port already taken is the likeliest first-run failure. A traceback
+        # here reads as "this is broken" rather than "pick another port".
+        print(f"Could not start on port {PORT}: {e}\n"
+              f"Something else is using it. Try:  PORT=8478 python3 {Path(__file__).name}\n"
+              f"or change \"port\" in config.json.")
+        raise SystemExit(1)
     print(f"skillview -> http://localhost:{PORT}   (ctrl-c to stop)")
     try:
         server.serve_forever()
