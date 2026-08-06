@@ -126,7 +126,7 @@ def row(**kw):
         surfaces=[], activation="auto", prereqs=[], needs_running=[],
         version="", install_path="", source_repo="", source_url="",
         source_path="", folder_hash="", installed_at="", description="",
-        readme="", subcommands=[], parent="", purpose=[],
+        readme="", subcommands=[], parent="", purpose=[], size=0,
         # v2 keeps a slot here rather than reshaping the row later.
         usage=None,
     )
@@ -259,6 +259,76 @@ def _resolve_skill_dir(name):
     return None
 
 
+def scan_mcp(cdir):
+    """MCP servers from user scope and from each known project's .mcp.json.
+
+    Project paths come from Claude's own record of them, never from a hardcoded
+    list, so this finds a stranger's projects as readily as ours.
+
+    Auth state is not reported: for a remote server it lives behind the
+    provider's OAuth flow and leaves nothing on disk. What *is* checkable is
+    whether a stdio server's command still exists — a server pointing at a
+    deleted virtualenv is dead weight, and that is the honest half of the
+    question P2 asked.
+    """
+    rows, seen = [], set()
+    top = _json(Path.home() / ".claude.json")
+
+    sources = [("user", None, top.get("mcpServers") or {})]
+    for proj, pv in (top.get("projects") or {}).items():
+        sources.append(("project", proj, (pv or {}).get("mcpServers") or {}))
+        sources.append(("project", proj, _json(Path(proj) / ".mcp.json").get("mcpServers") or {}))
+
+    for scope, proj, servers in sources:
+        for name, cfg in servers.items():
+            key = (name, proj)
+            if key in seen or not isinstance(cfg, dict):
+                continue
+            seen.add(key)
+            cmd = cfg.get("command", "")
+            url = cfg.get("url", "")
+            transport = cfg.get("type") or ("stdio" if cmd else "remote" if url else "unknown")
+            missing = bool(cmd) and not _resolves(cmd)
+            where = Path(proj).name if proj else "all projects"
+            rows.append(row(
+                name=name, kind="mcp", mechanism="mcp",
+                author="you" if scope == "project" else "",
+                is_local=True,
+                surfaces=[f"{where}"],
+                activation="needs starting" if missing else "auto",
+                prereqs=[f"missing: {cmd}"] if missing else [],
+                install_path=str(Path(proj) / ".mcp.json") if proj else str(Path.home() / ".claude.json"),
+                description=f"{transport} server — {_tilde(url or cmd)}".strip(),
+            ))
+    return rows
+
+
+def _tilde(p):
+    """Shorten a home path for display. Long absolute paths bury the point."""
+    home = str(Path.home())
+    return "~" + p[len(home):] if p.startswith(home) else p
+
+
+def _resolves(cmd):
+    """A command counts as present if it is a real path or found on PATH."""
+    import shutil
+    return Path(cmd).exists() or shutil.which(cmd) is not None
+
+
+def dir_size(path):
+    """Bytes on disk. Cheap enough to run inline — 19 trees measured in 0.11s."""
+    if not path:
+        return 0
+    total = 0
+    for root, _dirs, files in os.walk(path, onerror=lambda e: None):
+        for f in files:
+            try:
+                total += os.path.getsize(os.path.join(root, f))
+            except OSError:
+                pass
+    return total
+
+
 def scan_local(cdir, claimed):
     """Anything in the skills dir with no upstream record — C3, R12.
 
@@ -310,6 +380,9 @@ def inventory():
     tracked = scan_skills_sh(lock)
     rows += tracked
     rows += scan_local(cdir, {r["name"] for r in tracked} | {r["name"] for r in rows})
+    rows += scan_mcp(cdir)
+    for r in rows:
+        r["size"] = dir_size(r["install_path"]) if r["kind"] != "mcp" else 0
     rows.sort(key=lambda r: (r["mechanism"], r["name"].lower()))
     return rows
 

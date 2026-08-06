@@ -15,7 +15,8 @@ from pathlib import Path
 import inventory
 
 
-def build(root, *, plugins=False, lock=False, local=False, broken=False, versioned=False):
+def build(root, *, plugins=False, lock=False, local=False, broken=False,
+          versioned=False, mcp=False):
     """Compose a fake $HOME containing only the mechanisms asked for."""
     home = Path(root)
     if plugins:
@@ -62,6 +63,21 @@ def build(root, *, plugins=False, lock=False, local=False, broken=False, version
         (d / "SKILL.md").write_text(
             "---\nname: awkward\ndescription: Answer things: books, talks, notes.\n---\n"
             "Needs `npm install -g widget` first.\n")
+    if mcp:
+        proj = home / "work/thing"
+        proj.mkdir(parents=True)
+        # One server whose command exists, one pointing at a deleted venv.
+        real = home / "bin/python"
+        real.parent.mkdir(parents=True, exist_ok=True)
+        real.write_text("")
+        (proj / ".mcp.json").write_text(json.dumps({"mcpServers": {
+            "alive": {"command": str(real), "args": []},
+            "dead": {"command": str(home / "gone/python"), "args": []},
+        }}))
+        (home / ".claude.json").write_text(json.dumps({
+            "mcpServers": {"remote-one": {"type": "http", "url": "https://example.test/mcp"}},
+            "projects": {str(proj): {}},
+        }))
     if versioned:
         d = home / ".claude/skills/vendored"
         d.mkdir(parents=True, exist_ok=True)
@@ -139,6 +155,21 @@ def main():
     assert v["version"] == "1.2.3", v["version"]
     assert v["author"] == "", "unknown source must not be attributed to the user"
     assert v["is_local"] is False
+
+    # MCP servers from user scope and a project's .mcp.json, with a health check
+    # on the stdio command — a server pointing at a deleted venv is dead weight.
+    rows, _ = case("mcp", mcp=True)
+    by = {r["name"]: r for r in rows}
+    assert set(by) == {"alive", "dead", "remote-one"}, sorted(by)
+    assert all(r["kind"] == "mcp" for r in rows)
+    assert by["alive"]["activation"] == "auto", by["alive"]["activation"]
+    assert by["dead"]["activation"] == "needs starting", by["dead"]["activation"]
+    assert by["dead"]["prereqs"] and "missing:" in by["dead"]["prereqs"][0]
+    assert not by["alive"]["prereqs"], "a resolvable command must not be flagged"
+    # A remote server has no command to check, so it is never called broken.
+    assert by["remote-one"]["activation"] == "auto"
+    assert "example.test" in by["remote-one"]["description"]
+    assert by["alive"]["surfaces"] == ["thing"], by["alive"]["surfaces"]
 
     # Everything at once — a tracked skill must not also appear as local.
     rows, _ = case("all", plugins=True, lock=True, local=True, broken=True, versioned=True)

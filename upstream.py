@@ -101,9 +101,10 @@ def check(rows):
 def _status(r, trees, markets):
     mech = r["mechanism"]
 
-    if mech == "local":
+    if mech in ("local", "mcp"):
         # Nothing upstream to be behind. Saying "up to date" here would imply a
-        # guarantee that does not exist (R12).
+        # guarantee that does not exist (R12). An MCP server is a pointer at a
+        # command, not a versioned artifact — there is nothing to compare.
         return NO_UPSTREAM, "", []
 
     if mech == "skills.sh":

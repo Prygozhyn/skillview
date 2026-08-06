@@ -25,7 +25,7 @@
      measures 2.93:1 as type. Darkened along the same hue until each clears AA. */
   --success:#15812c; --warning:#b34900; --error:#c92a2a;
   --tint-lavender:#e6e0f5; --tint-sky:#dcecfa; --tint-mint:#d9f3e1;
-  --tint-peach:#ffe8d4; --tint-gray:#f0eeec;
+  --tint-peach:#ffe8d4; --tint-rose:#fde0ec; --tint-gray:#f0eeec;
   --on-tint:#37352f;
   --code-bg:#f6f5f4; --code-ink:#37352f;
   --scrim:rgba(15,15,15,.34);
@@ -44,7 +44,7 @@
   --primary-wash:#1c2a55;
   --success:#5fd97e; --warning:#f0a355; --error:#f27272;
   --tint-lavender:#2a2456; --tint-sky:#16305a; --tint-mint:#14402a;
-  --tint-peach:#4a2a12; --tint-gray:#1a2749;
+  --tint-peach:#4a2a12; --tint-rose:#4a1d38; --tint-gray:#1a2749;
   --on-tint:#dfe5f5;
   --code-bg:#0a1530; --code-ink:#cdd6ee;
   --scrim:rgba(3,7,18,.62);
@@ -154,6 +154,7 @@ td.plain .raw{color:var(--steel)}
 .pill[data-m="skills.sh"]{background:var(--tint-sky)}
 .pill[data-m="local"]{background:var(--tint-mint)}
 .pill[data-m="unknown"]{background:var(--tint-peach)}
+.pill[data-m="mcp"]{background:var(--tint-rose)}
 .state{font-size:13px;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
 .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
 .s-rest{color:var(--stone)}
@@ -410,6 +411,9 @@ function render() {
     </tr>`;
   }).join("");
 }
+const bytes = n => n >= 1e9 ? (n / 1e9).toFixed(1) + " GB"
+  : n >= 1e6 ? (n / 1e6).toFixed(1) + " MB"
+  : n >= 1e3 ? Math.round(n / 1e3) + " KB" : n + " B";
 const upClass = u => u === "up to date" ? "s-ok"
   : (u === "update available" || u === "update manually") ? "s-act" : "s-rest";
 
@@ -425,6 +429,7 @@ function openDetail(i) {
   add("Available in", esc((r.surfaces || []).join(", ")));
   add("Activation", esc(r.activation));
   add("Update", r.update ? esc(r.update) : "not checked yet");
+  add("On disk", r.size ? esc(bytes(r.size)) : "");
   add("Installed", r.installed_at ? esc(r.installed_at.slice(0, 10)) : "");
   add("Repository", r.source_url
     ? `<a href="${esc(r.source_url.replace(/\.git$/, ""))}" target="_blank" rel="noopener">${esc(r.source_repo || r.source_url)}</a>` : "");
