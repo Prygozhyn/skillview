@@ -451,11 +451,26 @@ function openDetail(i) {
     html += `<h3>Set up first</h3>` + r.prereqs.map(c => `<code class="cmd">${esc(c)}</code>`).join("");
   if (r.update_command) {
     html += `<h3>To update</h3><code class="cmd">${esc(r.update_command)}</code>`;
-    html += UPDATES
-      ? `<p><button id="doupdate" class="primary" data-name="${esc(r.name)}">Run this update</button></p>
-         <div id="uplog"></div>`
-      : `<p class="note">Skillview is running read-only. Start it with
-         <code>--enable-updates</code> to run this from here.</p>`;
+    if (!UPDATES) {
+      html += `<p class="note">Skillview is running read-only. Start it with
+        <code>--enable-updates</code> to run this from here.</p>`;
+    } else {
+      // Only push the action when there is something to fetch. The ecosystem
+      // command re-checks and no-ops anyway, so running it on a current item is
+      // safe — just a pointless round trip. Offered quietly rather than removed,
+      // because this status is only as fresh as the last refresh.
+      const stale = r.update === "update available";
+      const unchecked = !r.update || r.update === "unknown";
+      html += unchecked
+        ? `<p class="note">Not checked yet — run <b>Check for updates</b> first, so this
+           only downloads if something has actually changed.</p>
+           <p><button id="doupdate" data-name="${esc(r.name)}">Update anyway</button></p>`
+        : stale
+          ? `<p><button id="doupdate" class="primary" data-name="${esc(r.name)}">Run this update</button></p>`
+          : `<p class="note">Already up to date as of the last check — nothing to download.</p>
+             <p><button id="doupdate" data-name="${esc(r.name)}">Re-check and update</button></p>`;
+      html += `<div id="uplog"></div>`;
+    }
   }
 
   const subs = r.subcommands || [];
@@ -541,7 +556,7 @@ $("#clear").onclick = () => {
 };
 $("#detail").onclick = async e => {
   const b = e.target.closest("#doupdate"); if (!b) return;
-  const log = $("#uplog");
+  const log = $("#uplog"), label = b.textContent;
   b.disabled = true; b.textContent = "Running…";
   log.innerHTML = `<p class="note">This can take a minute.</p>`;
   let d;
@@ -551,7 +566,7 @@ $("#detail").onclick = async e => {
       body: JSON.stringify({ name: b.dataset.name }),
     })).json();
   } catch (err) { d = { ok: false, error: "The request failed." }; }
-  b.disabled = false; b.textContent = "Run this update";
+  b.disabled = false; b.textContent = label;
   log.innerHTML =
     (d.ok ? `<p class="ok-line">Updated.</p>` : `<p class="err-line">${esc(d.error)}</p>`) +
     (d.restart_required

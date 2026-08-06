@@ -16,12 +16,21 @@ Safety properties, each of which the tests assert:
    manual instruction, never guessed at.
 4. One update at a time, under a lock, with a timeout.
 """
+import re
 import shutil
 import subprocess
 import threading
 
 TIMEOUT = 300
 _lock = threading.Lock()
+
+# These tools colour their output even when not attached to a terminal, and the
+# raw escapes render as literal garbage in the panel.
+ANSI = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
+
+
+def clean(text):
+    return ANSI.sub("", text or "").strip()
 
 # mechanism -> (binary, [argv builders]). Each builder takes the inventory row
 # and returns a complete argv list. Adding a mechanism means adding a row here;
@@ -84,8 +93,8 @@ def update(row):
             except OSError as e:
                 log.append(str(e))
                 return _fail("The update command could not be started.", log)
-            out = (p.stdout or "").strip()
-            err = (p.stderr or "").strip()
+            out = clean(p.stdout)
+            err = clean(p.stderr)
             if out:
                 log.append(out)
             if err:

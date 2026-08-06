@@ -81,6 +81,14 @@ def main():
         assert res["restart_required"] is True
         assert updater.update(pack())["restart_required"] is False
 
+        # --- colour codes never reach the panel ------------------------------
+        # npx colours its output even when not attached to a terminal.
+        coloured = Recorder(stdout="\x1b[38;5;145mUpdating…\x1b[0m\n\x1b[K\x1b[32mdone\x1b[0m")
+        with_stub(coloured)
+        res = updater.update(pack())
+        assert "\x1b" not in res["log"], repr(res["log"])
+        assert "Updating…" in res["log"] and "done" in res["log"], res["log"]
+
         # --- a failing step stops the sequence -------------------------------
         bad = Recorder(returncode=1, stdout="", stderr="boom")
         with_stub(bad)
