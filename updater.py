@@ -38,7 +38,11 @@ def clean(text):
 PLANS = {
     "marketplace": ("claude", [
         lambda r: ["claude", "plugin", "marketplace", "update", r["marketplace"]],
-        lambda r: ["claude", "plugin", "update", r["name"]],
+        # `claude plugin update` resolves by the scoped "<plugin>@<marketplace>"
+        # form the CLI itself lists installs under (see `claude plugin list`),
+        # not the bare plugin name — that fails with "Plugin ... not found"
+        # even though the marketplace refresh right before it succeeds.
+        lambda r: ["claude", "plugin", "update", f"{r['name']}@{r['marketplace']}"],
     ]),
     "skills.sh": ("npx", [
         lambda r: ["npx", "--yes", "skills@latest", "update", r["name"]],

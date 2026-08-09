@@ -76,7 +76,10 @@ def main():
         res = updater.update(plugin("ponytail", "ponytail"))
         assert rec.calls == [
             ["claude", "plugin", "marketplace", "update", "ponytail"],
-            ["claude", "plugin", "update", "ponytail"],
+            # Scoped "<plugin>@<marketplace>", matching `claude plugin list`'s
+            # own naming — the bare plugin name 404s even after a successful
+            # marketplace refresh, confirmed against the real CLI.
+            ["claude", "plugin", "update", "ponytail@ponytail"],
         ], rec.calls
         assert res["restart_required"] is True
         assert updater.update(pack())["restart_required"] is False
