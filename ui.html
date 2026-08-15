@@ -163,6 +163,7 @@ td.plain .raw{color:var(--steel)}
 .chev{color:var(--stone)}
 tbody tr:hover .chev{color:var(--primary)}
 .chev svg{width:16px;height:16px}
+.loading-row{padding:32px 12px;text-align:center;color:var(--stone);font-size:13px}
 .empty{padding:80px 24px;text-align:center;color:var(--stone)}
 .empty b{display:block;color:var(--ink);font-size:16px;margin-bottom:6px;font-weight:600}
 
@@ -315,7 +316,9 @@ a{color:var(--primary)}
 
 <main>
   <div class="tablewrap">
-    <table><thead><tr id="head"></tr></thead><tbody id="rows"></tbody></table>
+    <table><thead><tr id="head"></tr></thead><tbody id="rows">
+      <tr><td colspan="7" class="loading-row">Loading…</td></tr>
+    </tbody></table>
   </div>
   <div class="empty" id="empty" hidden></div>
 </main>
@@ -501,7 +504,7 @@ function openDetail(i) {
   if (r.readme?.endsWith(".md"))
     html += `<p class="note">Full docs: <span class="mono">${esc(r.readme)}</span></p>`;
 
-  html += `<h3 id="noteheading">Your notes</h3>
+  html += `<h3>Your notes</h3>
     <label class="vh" for="mynote">Your notes on ${esc(r.name)}</label>
     <textarea id="mynote" aria-describedby="notestatus"
       placeholder="Why you're keeping this, or a reminder to remove it…"
