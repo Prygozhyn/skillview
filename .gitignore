@@ -14,10 +14,11 @@ scratch_*.py
 *_local.py
 
 # Internal planning docs. They name private skills and personal paths, so they
-# are excluded from the public repo. Remove these two lines only if you decide
+# are excluded from the public repo. Remove these lines only if you decide
 # the requirements history should ship — read them first.
 TODO.md
 PRD.md
+promo-drafts.md
 
 # Screenshots — any capture of a real dashboard shows real installed skills.
 # docs/ is the exception: those are curated, filtered to third-party skills
