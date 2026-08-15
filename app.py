@@ -26,7 +26,7 @@ import updater
 import upstream
 
 HERE = Path(__file__).parent
-CONFIG = json.loads((HERE / "config.json").read_text()) if (HERE / "config.json").exists() else {}
+CONFIG = json.loads((HERE / "config.json").read_text(encoding="utf-8")) if (HERE / "config.json").exists() else {}
 PORT = int(os.environ.get("PORT") or CONFIG.get("port", 8477))
 
 # Running update commands is off unless the operator asks for it. A clone that

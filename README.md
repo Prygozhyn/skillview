@@ -97,7 +97,7 @@ It doesn't track usage, manage dependencies, or edit skills. It reads, reports, 
 - Availability in the claude.ai **chat window** is server-side and leaves no local trace, so it isn't claimed. The Surface column reports only what's on disk.
 - **Activation** for "needs starting" is detected by pattern-matching install hints in a skill's own docs. It catches the common shapes and will miss unusual phrasing.
 - Install sources it doesn't recognise are marked *update manually* rather than guessed at. It never claims "up to date" without evidence.
-- macOS and Linux. Windows is untested — patches welcome.
+- Developed and run on macOS. Linux is statically audited but not yet executed there: paths are `$HOME`-relative via `pathlib` throughout, every file read/write declares `encoding="utf-8"` explicitly (Python 3.7+ auto-coerces away from an ASCII-only locale on POSIX regardless, so this is belt-and-suspenders rather than a fix for a reproduced failure), and `run-ui.command`'s auto-open falls back to printing the URL when neither `open` nor `xdg-open` exists. If something real turns up on an actual Linux box, please file it. Windows is untested and unsupported.
 
 ## Where it reads from
 
