@@ -74,13 +74,20 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path.startswith("/api/catalog"):
             q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
             repo, path = q.get("repo", [""])[0], q.get("path", [""])[0]
-            if not repo or not path:
-                self._send({"error": "repo and path are required", "skills": []}, 400)
+            if not repo:
+                self._send({"error": "repo is required", "skills": []}, 400)
                 return
             rows = inventory.inventory()
-            installed = [r["source_path"] for r in rows
-                         if r["source_repo"] == repo and r["source_path"]]
-            self._send(upstream.catalog(repo, path, installed))
+            if path:
+                installed = [r["source_path"] for r in rows
+                             if r["source_repo"] == repo and r["source_path"]]
+                self._send(upstream.catalog(repo, path, installed))
+            else:
+                # No path: a plugin has no source_path to key a tree lookup
+                # off, so this is a marketplace-wide lookup instead (B2/Q9).
+                installed = {r["name"] for r in rows
+                             if r["mechanism"] == "marketplace" and r["source_repo"] == repo}
+                self._send(upstream.marketplace_catalog(repo, installed))
         elif self.path == "/api/notes":
             self._send({"notes": notes.get_all()})
         else:

@@ -75,6 +75,25 @@ def fetch_marketplace(repo):
     return versions or None
 
 
+def marketplace_catalog(repo, installed_names):
+    """Every plugin a marketplace ships, each flagged installed or not.
+
+    Mirrors catalog()'s shape for skills.sh packs (B2/Q9): plugins have no
+    source_path to key a git-tree lookup off, but marketplace.json already
+    lists every plugin the repo declares in one file, so this needs no tree
+    fetch at all — one request regardless of how many plugins it lists.
+    """
+    base = f"https://raw.githubusercontent.com/{repo}/HEAD/.claude-plugin"
+    data = _get(f"{base}/marketplace.json")
+    if not data:
+        return {"error": "Could not reach the marketplace manifest.", "plugins": []}
+    return {"plugins": [{
+        "name": p.get("name", ""),
+        "description": p.get("description", ""),
+        "installed": p.get("name") in installed_names,
+    } for p in data.get("plugins", []) if p.get("name")]}
+
+
 def check(rows):
     """Annotate rows in place with `update` and `update_command`. Returns rows.
 
@@ -121,7 +140,11 @@ def _status(r, trees, markets):
 
     if mech == "marketplace":
         declared = (markets.get(r["source_repo"]) or {}).get(r["name"])
-        cmd = f"claude plugin marketplace update && claude plugin update {r['name']}"
+        # Scoped "<plugin>@<marketplace>", matching `claude plugin list`'s own
+        # naming (and updater.py's PLANS) — the bare name 404s even right
+        # after a successful marketplace refresh, confirmed against the CLI.
+        cmd = (f"claude plugin marketplace update && "
+               f"claude plugin update {r['name']}@{r['marketplace']}")
         if declared is None or not declared:
             # Manifest reachable but versionless, or unreachable. Either way we
             # have no basis for a claim.
