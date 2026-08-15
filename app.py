@@ -21,6 +21,7 @@ from pathlib import Path
 
 import describe
 import inventory
+import notes
 import updater
 import upstream
 
@@ -80,6 +81,8 @@ class Handler(BaseHTTPRequestHandler):
             installed = [r["source_path"] for r in rows
                          if r["source_repo"] == repo and r["source_path"]]
             self._send(upstream.catalog(repo, path, installed))
+        elif self.path == "/api/notes":
+            self._send({"notes": notes.get_all()})
         else:
             self._send({"error": "not found"}, 404)
 
@@ -109,6 +112,15 @@ class Handler(BaseHTTPRequestHandler):
                 self._send({"ok": False, "error": "No installed item by that name."}, 404)
                 return
             self._send(updater.update(row))
+        elif self.path == "/api/notes":
+            # No UPDATES gate: this writes one local text file and never
+            # shells out, so it carries none of updater.py's risk.
+            body = self._body()
+            name = body.get("name")
+            if not name:
+                self._send({"error": "name is required"}, 400)
+                return
+            self._send({"notes": notes.set_note(name, str(body.get("text", "")))})
         else:
             self._send({"error": "not found"}, 404)
 

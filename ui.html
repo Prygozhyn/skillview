@@ -237,6 +237,13 @@ ul.pack li.off .badge{color:var(--stone);font-weight:500;text-transform:none;let
   font-family:var(--mono);font-size:12.5px;overflow-x:auto;white-space:pre;
 }
 .note{color:var(--stone);font-size:13px;margin:8px 0 0}
+#mynote{
+  width:100%;min-height:70px;resize:vertical;font:14px/1.5 var(--sans);
+  color:var(--charcoal);background:var(--surface);border:1px solid var(--hairline-strong);
+  border-radius:var(--r-md);padding:10px 12px;
+}
+#mynote:focus-visible{outline:2px solid var(--primary);outline-offset:1px}
+.hasnote{color:var(--primary);margin-left:4px}
 .actions{
   display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
   background:var(--surface);border:1px solid var(--hairline);border-radius:var(--r-lg);
@@ -332,7 +339,7 @@ const VIEWS = {
   "Update available": r => r.update === "update available",
 };
 let ITEMS = [], VIEW = "Everything", SORT = {key:"name", dir:1}, CLI = true,
-    UPDATES = false, LAST_FOCUS = null;
+    UPDATES = false, NOTES = {}, LAST_FOCUS = null;
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
@@ -356,6 +363,10 @@ async function load(url = "/api/items") {
   try {
     const d = await (await fetch(url)).json();
     ITEMS = d.items || []; CLI = d.cli; UPDATES = !!d.updates;
+    // Independent of the inventory fetch — notes are user state, not a
+    // property of the row, so they're joined here rather than server-side.
+    try { NOTES = (await (await fetch("/api/notes")).json()).notes || {}; }
+    catch (e) { /* the table still works without notes */ }
   } catch (e) {
     ITEMS = []; $("#empty").innerHTML = "<b>Can't reach the local server</b>Is app.py still running?";
   }
@@ -414,7 +425,7 @@ function render() {
   $("#rows").innerHTML = rows.map(r => {
     const i = ITEMS.indexOf(r), ships = (r.subcommands || []).length;
     return `<tr tabindex="0" data-i="${i}" aria-label="${esc(r.name)}, view details">
-      <td class="name">${esc(r.name)}${ships
+      <td class="name">${esc(r.name)}${NOTES[r.name] ? '<span class="hasnote" title="Has a note">●</span>' : ""}${ships
         ? `<span class="sub">plugin · ships ${ships}</span>`
         : r.version ? `<span class="sub mono">${esc(r.version)}</span>` : ""}</td>
       <td class="col-source"><span class="pill" data-m="${esc(r.mechanism)}">${esc(r.mechanism)}</span></td>
@@ -482,6 +493,11 @@ function openDetail(i) {
   }
   if (r.readme?.endsWith(".md"))
     html += `<p class="note">Full docs: <span class="mono">${esc(r.readme)}</span></p>`;
+
+  html += `<h3>Your notes</h3>
+    <textarea id="mynote" placeholder="Why you're keeping this, or a reminder to remove it…"
+      data-name="${esc(r.name)}">${esc(NOTES[r.name] || "")}</textarea>
+    <p class="note" id="notestatus">Saves automatically when you click away.</p>`;
 
   if (r.source_repo && r.source_path) html += `<div id="pack"></div>`;
 
@@ -572,6 +588,24 @@ $("#clear").onclick = () => {
   ["#q", "#fmech", "#fact", "#fauthor"].forEach(s => $(s).value = "");
   render(); $("#q").focus();
 };
+$("#detail").addEventListener("blur", async e => {
+  const t = e.target.closest("#mynote"); if (!t) return;
+  const name = t.dataset.name, was = NOTES[name] || "";
+  if (t.value === was) return;                    // nothing changed, no request
+  const status = $("#notestatus");
+  status.textContent = "Saving…";
+  try {
+    const d = await (await fetch("/api/notes", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, text: t.value }),
+    })).json();
+    NOTES = d.notes || NOTES;
+    status.textContent = "Saved.";
+  } catch (err) {
+    status.textContent = "Could not save — check the server is still running.";
+  }
+}, true);  // capture: textarea blur does not bubble
+
 $("#detail").onclick = async e => {
   const b = e.target.closest("#doupdate"); if (!b) return;
   const log = $("#uplog"), label = b.textContent;
