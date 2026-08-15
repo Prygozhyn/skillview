@@ -60,8 +60,8 @@ def main():
     # is freeform user text, not a constrained field.
     def case_freeform_text(tmp):
         text = "line one\nline two — €£¥ 你好"
-        notes.set_note("librarian", text)
-        assert notes.get_all()["librarian"] == text
+        notes.set_note("some-skill", text)
+        assert notes.get_all()["some-skill"] == text
     with_tmp_store(case_freeform_text)
 
     # A second process's write is not clobbered by one that started reading
