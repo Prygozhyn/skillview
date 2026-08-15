@@ -128,6 +128,18 @@ class Handler(BaseHTTPRequestHandler):
                 self._send({"error": "name is required"}, 400)
                 return
             self._send({"notes": notes.set_note(name, str(body.get("text", "")))})
+        elif self.path == "/api/install":
+            if not UPDATES:
+                self._send({"ok": False, "error":
+                            "Updates are disabled. Restart with --enable-updates to allow them."}, 403)
+                return
+            body = self._body()
+            kind, repo = body.get("kind"), body.get("repo")
+            name, marketplace = body.get("name"), body.get("marketplace", "")
+            if not kind or not repo or not name:
+                self._send({"ok": False, "error": "kind, repo and name are required"}, 400)
+                return
+            self._send(updater.install(kind, repo, name, marketplace))
         else:
             self._send({"error": "not found"}, 404)
 

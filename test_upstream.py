@@ -69,7 +69,44 @@ def main():
     assert d.get("skills", d.get("plugins")) == [] or "error" in d, d
     assert "error" in d, "an unreachable repo must say so, not return an empty success"
 
+    # --- catalog() must use the frontmatter name, not the folder, for the
+    # thing you'd actually pass to `skills add --skill` ---------------------
+    # Real case that failed live: Leonxlnx/taste-skill's folder "output-skill"
+    # declares itself "full-output-enforcement" in SKILL.md. Sending the
+    # folder name to the install command 404s — "No matching skills found".
+    TREE = {"tree": [
+        {"path": "skills", "type": "tree", "sha": "a"},
+        {"path": "skills/output-skill", "type": "tree", "sha": "b"},
+        {"path": "skills/other-skill", "type": "tree", "sha": "c"},
+    ]}
+    SKILL_MD = {
+        "skills/output-skill/SKILL.md":
+            "---\nname: full-output-enforcement\ndescription: Enforces complete output.\n---\n",
+        "skills/other-skill/SKILL.md":
+            "---\nname: other-skill\ndescription: Something else.\n---\n",
+    }
+
+    def fake_get(url, parse_json=True):
+        if "git/trees" in url:
+            return TREE
+        for path, body in SKILL_MD.items():
+            if path in url:
+                return body
+        return None
+
+    upstream._get = fake_get
+    try:
+        d = upstream.catalog("Leonxlnx/taste-skill", "skills/output-skill/SKILL.md")
+    finally:
+        upstream._get = real_get
+
+    by_name = {s["name"]: s for s in d["skills"]}
+    assert by_name["output-skill"]["install_name"] == "full-output-enforcement", \
+        by_name["output-skill"]
+    assert by_name["other-skill"]["install_name"] == "other-skill"
+
     print("ok — marketplace_catalog lists siblings and flags installed ones")
+    print("ok — catalog() surfaces the frontmatter name, not the folder, for install")
 
 
 if __name__ == "__main__":

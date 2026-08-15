@@ -125,7 +125,57 @@ def main():
     finally:
         restore()
 
-    print("ok — updater safety properties hold")
+    # --- install(): the greyed-row install button (D3/P6) ------------------
+    # Same write surface, same safety properties, different verb: the row
+    # doesn't exist in inventory yet (that's the whole point), so the request
+    # supplies structured data — kind, repo, name, marketplace — and the argv
+    # is built entirely server-side from that, never from a raw command.
+    rec = Recorder()
+    with_stub(rec)
+    try:
+        res = updater.install("skill", "kepano/obsidian-skills", "defuddle", "")
+        assert res["ok"], res
+        assert rec.calls == [["npx", "--yes", "skills@latest", "add",
+                              "kepano/obsidian-skills", "--skill", "defuddle", "-g"]], rec.calls
+        assert res["restart_required"] is False, "a skill install matches skill updates: no restart"
+
+        rec.calls.clear()
+        res = updater.install("plugin", "thedotmack/claude-mem", "claude-mem", "thedotmack")
+        assert rec.calls == [["claude", "plugin", "install", "claude-mem@thedotmack"]], rec.calls
+        assert res["restart_required"] is True, "a plugin install matches plugin updates: needs restart"
+
+        # A plugin install with no marketplace can't build a safe scoped
+        # command, so it refuses rather than guessing at an unscoped one.
+        rec.calls.clear()
+        res = updater.install("plugin", "thedotmack/claude-mem", "claude-mem", "")
+        assert not res["ok"] and rec.calls == [], res
+
+        # An unrecognised kind refuses before touching subprocess.
+        rec.calls.clear()
+        res = updater.install("gadget", "x/y", "z", "")
+        assert not res["ok"] and rec.calls == [], res
+
+        # Injection safety holds the same way it does for update(): a hostile
+        # name stays one argv element, never shell-parsed.
+        rec.calls.clear()
+        nasty = "; rm -rf ~ #"
+        updater.install("skill", "some/repo", nasty, "")
+        assert rec.calls == [["npx", "--yes", "skills@latest", "add",
+                              "some/repo", "--skill", nasty, "-g"]], rec.calls
+        assert len(rec.calls[0]) == 8, "injection must not split into extra argv elements"
+
+        # install() and update() share the one lock — an install cannot run
+        # while an update is in flight, or vice versa.
+        updater._lock.acquire()
+        try:
+            res = updater.install("skill", "kepano/obsidian-skills", "defuddle", "")
+            assert not res["ok"] and "already running" in res["error"], res
+        finally:
+            updater._lock.release()
+    finally:
+        restore()
+
+    print("ok — updater safety properties hold, including install()")
 
 
 if __name__ == "__main__":

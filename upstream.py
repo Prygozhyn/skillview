@@ -206,14 +206,18 @@ def catalog(repo, sample_path, installed_paths=()):
     stamp = tree["dirs"].get(parent, "")
     cached = _cache_read()
     hit = cached.get(repo)
-    descs = hit["descriptions"] if hit and hit.get("stamp") == stamp else {}
+    # A dict per path (name + description). Guard against the old cache shape
+    # (a bare description string) from before install_name existed — treat it
+    # as a miss rather than raise, since this file is a local, disposable cache.
+    meta = hit["meta"] if hit and hit.get("stamp") == stamp else {}
+    meta = {k: v for k, v in meta.items() if isinstance(v, dict)}
 
-    missing = [d for d in dirs if d not in descs]
+    missing = [d for d in dirs if d not in meta]
     if missing:
         with ThreadPoolExecutor(max_workers=8) as pool:
-            got = dict(zip(missing, pool.map(lambda d: _description(repo, d), missing)))
-        descs.update({k: v for k, v in got.items() if v is not None})
-        cached[repo] = {"stamp": stamp, "descriptions": descs}
+            got = dict(zip(missing, pool.map(lambda d: _skill_meta(repo, d), missing)))
+        meta.update({k: v for k, v in got.items() if v is not None})
+        cached[repo] = {"stamp": stamp, "meta": meta}
         try:
             CATALOG_CACHE.write_text(json.dumps(cached, indent=1, sort_keys=True),
                                      encoding="utf-8")
@@ -223,22 +227,27 @@ def catalog(repo, sample_path, installed_paths=()):
     inst = {p.rsplit("/", 1)[0] if p.endswith("SKILL.md") else p for p in installed_paths}
     return {"skills": [{
         "name": d.rsplit("/", 1)[1],
+        # `skills add --skill <name>` matches the frontmatter name, not the
+        # folder — confirmed live: the folder "output-skill" declares itself
+        # "full-output-enforcement", and the folder name 404s. Falls back to
+        # the folder when frontmatter has none, rather than sending empty.
+        "install_name": (meta.get(d) or {}).get("name") or d.rsplit("/", 1)[1],
         "path": d,
-        "description": descs.get(d, ""),
+        "description": (meta.get(d) or {}).get("description", ""),
         "installed": d in inst,
         "url": f"https://github.com/{repo}/tree/HEAD/{d}",
     } for d in dirs]}
 
 
-def _description(repo, folder):
-    """Pull just the frontmatter description from an upstream SKILL.md."""
+def _skill_meta(repo, folder):
+    """Pull the frontmatter name and description from an upstream SKILL.md."""
     raw = _get(f"https://raw.githubusercontent.com/{repo}/HEAD/{folder}/SKILL.md",
                parse_json=False)
     if not raw:
         return None
     from inventory import read_frontmatter_text
-    meta, _ = read_frontmatter_text(raw)
-    return meta.get("description", "")
+    fm, _ = read_frontmatter_text(raw)
+    return {"name": fm.get("name", ""), "description": fm.get("description", "")}
 
 
 if __name__ == "__main__":

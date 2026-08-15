@@ -82,6 +82,14 @@ def update(row):
     if not argvs:
         return _fail("This item is missing the details needed to build an update command.")
 
+    return _run(argvs, restart_required=mech in NEEDS_RESTART)
+
+
+def _run(argvs, *, restart_required, timeout_msg="The update timed out.",
+         start_fail_msg="The update command could not be started."):
+    """Run a sequence of argv lists, one at a time, under the single write
+    lock. Shared by update() and install() — both are "run these commands and
+    report what happened," differing only in how the argv list gets built."""
     if not _lock.acquire(blocking=False):
         return _fail("Another update is already running. Wait for it to finish.")
     try:
@@ -93,10 +101,10 @@ def update(row):
                                    timeout=TIMEOUT, shell=False)
             except subprocess.TimeoutExpired:
                 log.append(f"timed out after {TIMEOUT}s")
-                return _fail("The update timed out.", log)
+                return _fail(timeout_msg, log)
             except OSError as e:
                 log.append(str(e))
-                return _fail("The update command could not be started.", log)
+                return _fail(start_fail_msg, log)
             out = clean(p.stdout)
             err = clean(p.stderr)
             if out:
@@ -105,14 +113,50 @@ def update(row):
                 log.append(err)
             if p.returncode != 0:
                 return _fail(f"`{argv[0]}` exited {p.returncode}.", log)
-        return {
-            "ok": True,
-            "restart_required": mech in NEEDS_RESTART,
-            "log": "\n".join(log),
-            "error": "",
-        }
+        return {"ok": True, "restart_required": restart_required,
+                "log": "\n".join(log), "error": ""}
     finally:
         _lock.release()
+
+
+# kind -> argv builder for installing something not yet in the inventory
+# (D3/P6). The row can't be looked up because it doesn't exist yet — that's
+# the point of "install" — so the caller supplies structured data instead,
+# and the argv is built entirely from that, the same "page supplies data,
+# never a command" property PLANS holds for updates.
+INSTALL_PLANS = {
+    "skill": lambda repo, name, marketplace:
+        [["npx", "--yes", "skills@latest", "add", repo, "--skill", name, "-g"]],
+    "plugin": lambda repo, name, marketplace:
+        [["claude", "plugin", "install", f"{name}@{marketplace}"]] if marketplace else [],
+}
+
+# A skill install matches skill updates (§NEEDS_RESTART above): no restart.
+# A plugin install matches plugin updates: the running session hasn't loaded
+# it, so it needs one.
+INSTALL_NEEDS_RESTART = {"plugin"}
+
+
+def install_plan(kind, repo, name, marketplace=""):
+    builder = INSTALL_PLANS.get(kind)
+    if not builder:
+        return []
+    argvs = builder(repo, name, marketplace)
+    return argvs if argvs and all(all(part for part in a) for a in argvs) else []
+
+
+def install(kind, repo, name, marketplace=""):
+    """Install one not-yet-installed item. Returns a result dict; never raises."""
+    argvs = install_plan(kind, repo, name, marketplace)
+    if not argvs:
+        return _fail(f"Skillview does not know how to install a '{kind}' item here, "
+                     "or is missing the details needed to build the command.")
+    binary = argvs[0][0]
+    if not shutil.which(binary):
+        return _fail(f"`{binary}` is not on PATH, so this cannot run here.")
+    return _run(argvs, restart_required=kind in INSTALL_NEEDS_RESTART,
+                timeout_msg="The install timed out.",
+                start_fail_msg="The install command could not be started.")
 
 
 def _fail(message, log=None):

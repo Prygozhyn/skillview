@@ -232,6 +232,8 @@ ul.pack li.off .d{color:var(--steel)}
 ul.pack li.off .badge{color:var(--stone);font-weight:500;text-transform:none;letter-spacing:0}
 ul.pack .pack-cmd{grid-area:3/1/4/3;margin-top:6px;font-size:11.5px}
 ul.pack li.installing .pack-cmd{opacity:.5}
+ul.pack .pack-install{grid-area:4/1/5/3;margin-top:6px;justify-self:start;
+  padding:6px 12px;min-height:32px;font-size:12.5px}
 .packnote{color:var(--stone);font-size:13px;margin:0 0 10px}
 .cmd{
   display:block;background:var(--code-bg);border:1px solid var(--hairline);
@@ -341,7 +343,7 @@ const VIEWS = {
   "Update available": r => r.update === "update available",
 };
 let ITEMS = [], VIEW = "Everything", SORT = {key:"name", dir:1}, CLI = true,
-    UPDATES = false, NOTES = {}, LAST_FOCUS = null;
+    UPDATES = false, NOTES = {}, LAST_FOCUS = null, CURRENT_PACK_ROW = null;
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
@@ -566,17 +568,25 @@ async function loadPack(r) {
       ? `${esc(r.source_repo)} ships ${items.length} ${plural}. None of the others are installed.`
       : `${esc(r.source_repo)} ships ${items.length} ${plural} — you have ${have},
          and ${left} ${left === 1 ? "is" : "are"} not installed.`;
+  // Skills.sh matches --skill against the frontmatter name, not the folder —
+  // Leonxlnx/taste-skill's "output-skill" folder declares itself
+  // "full-output-enforcement", confirmed live: the folder name 404s.
+  // Plugins have no such split — a marketplace's declared name is the id.
   const install = isPlugin
-    ? n => `claude plugin install ${n}@${r.marketplace}`
-    : n => `npx skills@latest add ${r.source_repo} --skill ${n} -g`;
+    ? s => `claude plugin install ${s.name}@${r.marketplace}`
+    : s => `npx skills@latest add ${r.source_repo} --skill ${s.install_name || s.name} -g`;
   box.innerHTML = `<h3>${heading}</h3><p class="packnote">${summary}</p>
     <ul class="pack">` + items.map(s => `
-      <li class="${s.installed ? "" : "off"}">
+      <li class="${s.installed ? "" : "off"}" data-name="${esc(s.name)}">
         <span class="nm">${esc(s.name)}</span>
         <span class="badge">${s.installed ? "installed" : "not installed"}</span>
         <span class="d">${esc(s.description || "No description upstream.")}</span>
-        ${s.installed ? "" : `<code class="cmd pack-cmd">${esc(install(s.name))}</code>`}
+        ${s.installed ? "" : `<code class="cmd pack-cmd">${esc(install(s))}</code>
+          ${UPDATES ? `<button class="pack-install" data-kind="${isPlugin ? "plugin" : "skill"}"
+              data-repo="${esc(r.source_repo)}" data-name-inst="${esc(isPlugin ? s.name : (s.install_name || s.name))}"
+              data-marketplace="${esc(r.marketplace || "")}">Install</button>` : ""}`}
       </li>`).join("") + `</ul>`;
+  CURRENT_PACK_ROW = r;   // so a successful install can reload this same pack
 }
 
 function closeDetail() {
@@ -622,6 +632,8 @@ $("#detail").addEventListener("blur", async e => {
 }, true);  // capture: textarea blur does not bubble
 
 $("#detail").onclick = async e => {
+  const inst = e.target.closest(".pack-install");
+  if (inst) return doInstall(inst);
   const b = e.target.closest("#doupdate"); if (!b) return;
   const log = $("#uplog"), label = b.textContent;
   b.disabled = true; b.textContent = "Running…";
@@ -642,6 +654,31 @@ $("#detail").onclick = async e => {
     (d.log ? `<code class="cmd">${esc(d.log)}</code>` : "");
   if (d.ok) load("/api/refresh");
 };
+
+async function doInstall(b) {
+  const li = b.closest("li");
+  const kind = b.dataset.kind, repo = b.dataset.repo,
+        name = b.dataset.nameInst, marketplace = b.dataset.marketplace;
+  li.classList.add("installing"); b.disabled = true; b.textContent = "Installing…";
+  let d;
+  try {
+    d = await (await fetch("/api/install", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind, repo, name, marketplace }),
+    })).json();
+  } catch (err) { d = { ok: false, error: "The request failed." }; }
+
+  if (d.ok) {
+    // Re-fetch the whole pack rather than patch one row — the source of
+    // truth for "installed" is the live inventory, and a fresh fetch is
+    // simpler than reconstructing that state on the client.
+    if (CURRENT_PACK_ROW) loadPack(CURRENT_PACK_ROW);
+    load();   // the main table's own "installed" count and rows follow too
+  } else {
+    li.classList.remove("installing"); b.disabled = false; b.textContent = "Install";
+    alert(d.error || "Install failed.");
+  }
+}
 $("#scrim").onclick = closeDetail;
 $("#close").onclick = closeDetail;
 // Must not return a value: a DOM0 handler returning false calls preventDefault(),
