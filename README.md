@@ -1,10 +1,12 @@
 # Skillview
 
-**One table for every Claude Code skill, plugin and MCP server you've installed — whatever installed it.**
+**Skillview shows every Claude Code skill, plugin, and MCP server in one table.** The install mechanism does not matter.
 
-What each one actually does, how to invoke it, and whether it's fallen behind upstream. Runs locally, has no dependencies, and only reads unless you tell it otherwise.
+The table shows what each item does, how to run it, and if it is out of date. Skillview runs on your computer. It has no dependencies. It only reads data, unless you turn on the update function.
 
-![Skillview listing installed skills, with plain-English descriptions, activation mode and update status](docs/skillview.png)
+| Light theme | Dark theme |
+|---|---|
+| ![Skillview table in light theme](docs/skillview-light.png) | ![Skillview table in dark theme](docs/skillview-dark.png) |
 
 ## The problem
 
