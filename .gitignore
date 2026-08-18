@@ -27,9 +27,18 @@ promo-drafts.md
 *.jpg
 *.jpeg
 !docs/*.png
+# assets/bg-float.jpg — the floating map-and-magnifying-glass background.
+# Unsplash photo by Angelo Casto (unsplash.com/photos/OKJHAjc7wz0), used
+# under the Unsplash License: free for commercial and noncommercial use,
+# no permission or attribution required. Safe to ship as-is.
+!assets/bg-float.jpg
 
 __pycache__/
 *.pyc
 .venv/
 venv/
 .DS_Store
+
+# playwright-cli's own local session snapshots — verification tooling
+# artifacts, not part of the app.
+.playwright-cli/

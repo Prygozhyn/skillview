@@ -21,19 +21,26 @@ for i in $(seq 1 50); do
   sleep 0.1
 done
 
+# A cache-busting query string, not just the bare URL: `open -a "Google
+# Chrome" url` reuses an existing tab already sitting on that exact URL
+# instead of loading it fresh, so a tab left open from a previous run keeps
+# showing whatever ui.html looked like back then, forever. Making the URL
+# different each launch forces a real navigation every time.
+URL="http://localhost:${PORT}/?t=$(date +%s)"
+
 # Prefer Chrome specifically, since that's the browser wanted for this flow.
 # `open` is macOS-only; `xdg-open` is its Linux equivalent but a headless box
 # has neither and no browser to open anyway — fall back to printing the URL.
 if command -v open >/dev/null 2>&1; then
   if [ -d "/Applications/Google Chrome.app" ]; then
-    open -a "Google Chrome" "http://localhost:${PORT}"
+    open -a "Google Chrome" "$URL"
   else
-    open "http://localhost:${PORT}"
+    open "$URL"
   fi
 elif command -v xdg-open >/dev/null 2>&1; then
-  xdg-open "http://localhost:${PORT}"
+  xdg-open "$URL"
 else
-  echo "Open http://localhost:${PORT} in a browser once the server starts."
+  echo "Open ${URL} in a browser once the server starts."
 fi
 
 wait "$SERVER_PID"

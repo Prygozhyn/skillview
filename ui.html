@@ -5,56 +5,78 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Skillview</title>
 <style>
-/* ── Notion design system ────────────────────────────────────────────────────
-   Values from Notion's published system. Light is the source of truth; the dark
-   set is derived from Notion's own navy scale, which is the only dark ground the
-   brand actually uses. Colour marks exceptions — the two states that ask
-   something of you — and everything at rest is ink on hairlines.
+/* ── Apple design system ─────────────────────────────────────────────────────
+   Tokens from Apple's published web system (design-md/apple/DESIGN.md): one
+   accent (Action Blue), near-black/white/parchment surfaces, SF Pro via the
+   system stack, a single reserved shadow, zero decorative gradients. Apple
+   ships this as a light-dominant system with alternating dark *tiles*, not a
+   persistent dark mode — the dark set below is assembled from Apple's own
+   documented dark-tile tokens (surface-tile-1, on-dark, Sky Link Blue) into a
+   full second theme, since this app needs one.
    ────────────────────────────────────────────────────────────────────────── */
 :root{
-  --canvas:#ffffff; --surface:#f6f5f4; --surface-soft:#fafaf9; --raised:#ffffff;
-  --hairline:#e5e3df; --hairline-soft:#ede9e4; --hairline-strong:#c8c4be;
-  --ink:#1a1a1a; --charcoal:#37352f; --slate:#5d5b54; --steel:#6b6963;
-  /* Notion's published --stone (#a4a097) and --steel (#787671) sit at 2.8:1 and
-     4.54:1 on white. Secondary text is darkened onto the same warm-grey axis so
-     the tertiary tier clears AA with margin rather than sitting on the line. */
-  --stone:#75736c; --muted:#82807a;
-  --primary:#5645d4; --primary-pressed:#4534b3; --on-primary:#ffffff;
-  --primary-wash:#eeebfb;
-  /* Notion's semantics are tuned for fills, not for text on white — its green
-     measures 2.93:1 as type. Darkened along the same hue until each clears AA. */
-  --success:#15812c; --warning:#b34900; --error:#c92a2a;
-  --tint-lavender:#e6e0f5; --tint-sky:#dcecfa; --tint-mint:#d9f3e1;
-  --tint-peach:#ffe8d4; --tint-rose:#fde0ec; --tint-gray:#f0eeec;
-  --on-tint:#37352f;
-  --code-bg:#f6f5f4; --code-ink:#37352f;
-  --scrim:rgba(15,15,15,.34);
-  --shadow-panel:0 8px 32px rgba(15,15,15,.14), 0 2px 8px rgba(15,15,15,.08);
-  --shadow-pop:0 2px 6px rgba(15,15,15,.07);
-  --r-sm:6px; --r-md:8px; --r-lg:12px; --r-full:9999px;
-  --sans:"Inter","Notion Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  --canvas:#ffffff; --surface:#f5f5f7; --surface-soft:#fafafc; --raised:#ffffff;
+  --hairline:#f0f0f0; --hairline-soft:#f5f5f5; --hairline-strong:#e0e0e0;
+  --ink:#1d1d1f; --charcoal:#1d1d1f; --slate:#333333; --steel:#6e6e73;
+  --stone:#6e6e73; --muted:#86868b;
+  --primary:#0066cc; --primary-pressed:#0071e3; --on-primary:#ffffff;
+  --primary-wash:#e8f1fc;
+  --success:#1a7d3c; --warning:#b3560a; --error:#d0353a; --tag-indigo:#4b4de0;
+  /* --warning/--error at pill size (12px) on their own pastel tints land at
+     4.38:1 / 4.23:1 — just under the 4.5:1 floor WCAG AA requires for text
+     that small. Darkened variants for the pill only; the Activation column
+     keeps the original tokens since that text sits on the plain canvas,
+     where they already clear it (verified below). */
+  --tag-warning-on-tint:#9c4a09; --tag-error-on-tint:#b82e33;
+  --tint-lavender:#eef0fc; --tint-sky:#e8f1fc; --tint-mint:#e6f6ea;
+  --tint-peach:#fdefe2; --tint-rose:#fbe9ef; --tint-gray:#f5f5f7;
+  --on-tint:#1d1d1f;
+  --code-bg:#f5f5f7; --code-ink:#1d1d1f;
+  --scrim:rgba(0,0,0,.4);
+  /* Apple reserves its one shadow for product imagery, tinted rather than
+     pure black, tight rather than large-blur-ambient (de-slop checklist:
+     default-only, never a loose glow). Used sparingly below on the detail
+     drawer only, where elevation is a real signal, not decoration. */
+  --shadow-panel:0 8px 28px rgba(0,0,0,.12), 0 2px 8px rgba(0,0,0,.06);
+  --shadow-pop:0 2px 6px rgba(0,0,0,.08);
+  --r-sm:8px; --r-md:11px; --r-lg:18px; --r-full:9999px;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,system-ui,sans-serif;
+  --sans-display:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Roboto,system-ui,sans-serif;
   --mono:ui-monospace,"SF Mono",Menlo,monospace;
 }
 :root[data-theme="dark"]{
-  --canvas:#070f24; --surface:#0a1530; --surface-soft:#0d1a38; --raised:#101f42;
-  --hairline:#1e2d54; --hairline-soft:#16244a; --hairline-strong:#2c3f6e;
-  --ink:#ffffff; --charcoal:#eef1f8; --slate:#c3cbe0; --steel:#a8b1c8;
-  --stone:#98a1b8; --muted:#8b94ac;
-  --primary:#9b7bf7; --primary-pressed:#b49bfa; --on-primary:#0a1530;
-  --primary-wash:#1c2a55;
-  --success:#5fd97e; --warning:#f0a355; --error:#f27272;
-  --tint-lavender:#2a2456; --tint-sky:#16305a; --tint-mint:#14402a;
-  --tint-peach:#4a2a12; --tint-rose:#4a1d38; --tint-gray:#1a2749;
-  --on-tint:#dfe5f5;
-  --code-bg:#0a1530; --code-ink:#cdd6ee;
-  --scrim:rgba(3,7,18,.62);
-  --shadow-panel:0 8px 40px rgba(0,0,0,.55), 0 2px 10px rgba(0,0,0,.4);
-  --shadow-pop:0 2px 6px rgba(0,0,0,.35);
+  --canvas:#1d1d1f; --surface:#272729; --surface-soft:#2a2a2c; --raised:#2a2a2c;
+  --hairline:#38383a; --hairline-soft:#333335; --hairline-strong:#48484a;
+  --ink:#ffffff; --charcoal:#ffffff; --slate:#cccccc; --steel:#a1a1a6;
+  --stone:#a1a1a6; --muted:#8e8e93;
+  /* Action Blue "disappears against the tile background" on dark surfaces —
+     Apple's own documented fix is Sky Link Blue, not a darkened Action Blue. */
+  --primary:#2997ff; --primary-pressed:#5cb0ff; --on-primary:#ffffff;
+  --primary-wash:#122740;
+  --success:#4ad776; --warning:#f2a35c; --error:#ff6b6b; --tag-indigo:#9b96ff;
+  /* Already clear 4.5:1 on their tints at dark values (6.81:1 / 5.51:1) —
+     no separate darkening needed here, just the same tokens under the
+     pill-specific names so both themes define them. */
+  --tag-warning-on-tint:#f2a35c; --tag-error-on-tint:#ff6b6b;
+  --tint-lavender:#20263a; --tint-sky:#14243a; --tint-mint:#123322;
+  --tint-peach:#3a2814; --tint-rose:#3a1c26; --tint-gray:#2a2a2c;
+  --on-tint:#f2f2f4;
+  --code-bg:#161618; --code-ink:#e5e5e7;
+  --scrim:rgba(0,0,0,.6);
+  --shadow-panel:0 8px 32px rgba(0,0,0,.5), 0 2px 10px rgba(0,0,0,.35);
+  --shadow-pop:0 2px 6px rgba(0,0,0,.3);
 }
 *{box-sizing:border-box}
 html,body{margin:0;min-height:100%}
+/* html carries the real base fill. body stays transparent on top of it so
+   .bg-float (fixed, behind body's content) can show through — but .bg-float
+   itself fades to fully transparent at its own masked edges, and with
+   nothing opaque under that, the raw browser canvas (white) showed straight
+   through at the viewport corners in both themes. html's fill is what those
+   faded edges land on instead. */
+html{background:var(--canvas)}
 body{
-  background:var(--canvas); color:var(--charcoal);
+  background:transparent; color:var(--charcoal);
   font:14px/1.5 var(--sans); -webkit-font-smoothing:antialiased;
 }
 .mono{font-family:var(--mono);font-size:12.5px}
@@ -65,19 +87,36 @@ body{
 
 /* ── chrome ─────────────────────────────────────────────────────────────── */
 header{
-  position:sticky;top:0;z-index:20;background:var(--canvas);
-  border-bottom:1px solid var(--hairline);padding:16px 24px 0;
+  position:sticky;top:0;z-index:20;
+  /* Translucent + blurred: the header is the one surface that still
+     blurs what's behind it (a small, static area, so it stays cheap) —
+     the table below is a plain low-opacity tint now, same treatment as
+     this bar minus the blur, so the two don't read as different surfaces. */
+  background:color-mix(in srgb, var(--canvas) 80%, transparent);
+  backdrop-filter:blur(20px) saturate(160%);-webkit-backdrop-filter:blur(20px) saturate(160%);
+  border-bottom:1px solid var(--hairline);padding:18px 24px 0;
 }
-.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-h1{font-size:18px;font-weight:600;letter-spacing:-.2px;margin:0;color:var(--ink)}
+.top{display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap}
+.brand-block{display:flex;flex-direction:column;gap:3px;min-height:44px;justify-content:center}
+.brand-line{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+/* Two-tone wordmark: the single accent that already carries every button and
+   link in this system also carries half the brand name, rather than adding
+   a new colour, a shadow, or an icon just to make the name look considered. */
+.brand{font-size:23px;font-weight:700;letter-spacing:-.4px;margin:0;color:var(--ink)}
+.brand .accent{color:var(--primary)}
+.tagline{font-size:13px;color:var(--stone);margin:0;max-width:48ch}
 .count{color:var(--stone);font-size:13px}
 .spacer{flex:1}
+/* Shape grammar (Apple, "shape consistency lock"): pill for anything that
+   acts — buttons, search, select, pills; r-lg for boxed content; r-sm for
+   compact inline code. No radius in between. */
 button{
   font:500 14px/1.3 var(--sans);color:var(--charcoal);background:transparent;
-  border:1px solid var(--hairline-strong);border-radius:var(--r-md);
-  padding:10px 16px;cursor:pointer;min-height:44px;
-  transition:background .12s ease,border-color .12s ease;
+  border:1px solid var(--hairline-strong);border-radius:var(--r-full);
+  padding:10px 18px;cursor:pointer;min-height:44px;
+  transition:background .12s ease,border-color .12s ease,transform .1s ease;
 }
+button:active:not(:disabled){transform:scale(.95)}
 button:hover:not(:disabled){background:var(--surface)}
 button:disabled{color:var(--muted);border-color:var(--hairline);cursor:default}
 button.primary{
@@ -88,6 +127,46 @@ button.primary:disabled{background:var(--hairline);border-color:var(--hairline);
 .icon-btn{padding:10px;min-width:44px;display:grid;place-items:center}
 svg{display:block;fill:none;stroke:currentColor;stroke-width:1.75;
     stroke-linecap:round;stroke-linejoin:round}
+
+/* ── floating background ───────────────────────────────────────────────────
+   A low-opacity backdrop pinned behind the whole page, not a separate
+   section you scroll past — a daily-use tool earns its keep by getting out
+   of the way, so the table stays the first thing you can act on. The table
+   itself is frosted glass (below), not opaque, specifically so this is
+   visible under every row at any viewport width, not just in a side margin
+   that may not exist. */
+.bg-float{
+  position:fixed;inset:-8% -8%;z-index:-1;pointer-events:none;
+  background:#101012 url("assets/bg-float.jpg") center 38% / cover no-repeat;
+  opacity:.4;
+  /* Broad, not a tight pool: this layer is fixed to the viewport, so a small
+     pool anchored near the top would only ever be visible near the top of
+     the screen, no matter how far you scroll. The mask's only job is a soft
+     vignette so cover-cropping can never land a hard edge right at the
+     screen edge — everywhere inside that stays fully visible. */
+  -webkit-mask-image:radial-gradient(ellipse 96% 94% at 50% 46%, #000 0%, #000 78%, transparent 100%);
+  mask-image:radial-gradient(ellipse 96% 94% at 50% 46%, #000 0%, #000 78%, transparent 100%);
+}
+/* Light needs more than dark gets, not just a bump for parity: the map's
+   own colors are pale (cream, tan, sky blue), so against a near-white
+   canvas there's barely any luminance contrast even at equal opacity —
+   the same percentage reads as much fainter than it does over near-black.
+   Extra saturation compensates with color contrast where luminance can't. */
+:root[data-theme="light"] .bg-float{opacity:.72;filter:saturate(1.5) contrast(1.05)}
+/* Real parallax, not a fade: the layer is already pinned to the viewport
+   (position:fixed keeps it still while the document scrolls beneath it) —
+   that stillness is the classic depth trick on its own. This adds a slow
+   counter-drift and a gentle zoom on top of it, so it reads as receding
+   rather than pasted flat behind the glass. */
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .bg-float{animation:bg-drift linear both;animation-timeline:scroll(root);animation-range:0 100%}
+    @keyframes bg-drift{
+      from{transform:translateY(0) scale(1)}
+      to{transform:translateY(-20vh) scale(1.09)}
+    }
+  }
+}
 
 .views{display:flex;gap:4px;margin-top:14px;flex-wrap:wrap}
 .views button{
@@ -101,28 +180,57 @@ svg{display:block;fill:none;stroke:currentColor;stroke-width:1.75;
 .filters{display:flex;gap:8px;padding:12px 0 14px;flex-wrap:wrap;align-items:center}
 input[type=search],select{
   font:14px var(--sans);color:var(--charcoal);background:var(--canvas);
-  border:1px solid var(--hairline-strong);border-radius:var(--r-md);
-  padding:9px 12px;min-height:44px;
+  border:1px solid var(--hairline-strong);border-radius:var(--r-full);
+  padding:9px 18px;min-height:44px;
 }
 input[type=search]{min-width:260px;flex:0 1 320px}
 input[type=search]::placeholder{color:var(--steel);opacity:1}
-select{cursor:pointer}
-:is(input,select).active{border-color:var(--primary);background:var(--primary-wash)}
+/* The native dropdown arrow sits flush against the pill's own edge with no
+   breathing room — replaced with a drawn chevron that gets real clearance
+   instead of crowding the border. */
+select{
+  cursor:pointer;appearance:none;-webkit-appearance:none;-moz-appearance:none;
+  padding-right:40px;background-repeat:no-repeat;background-position:right 16px center;
+  background-size:11px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' fill='none' stroke='%236e6e73' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+:root[data-theme="dark"] select{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' fill='none' stroke='%23a1a1a6' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+:is(input,select).active{border-color:var(--primary);background-color:var(--primary-wash)}
 #clear{display:none}
 #clear.show{display:inline-flex;align-items:center;gap:6px}
 
 /* ── table ──────────────────────────────────────────────────────────────── */
-main{padding:0 24px 64px}
+/* No horizontal padding here on purpose: main has no background of its own,
+   so any padding here is a gap where nothing painted over .bg-float — the
+   raw image showed through clean and unfiltered right beside the table's
+   own dimmed tint, two different textures on one page. The table paints
+   edge to edge instead (below); the first/last cell rules restore the
+   reading inset so text still isn't flush against the browser edge. */
+main{padding:0 0 64px}
 /* No overflow container at desktop: an overflow ancestor creates its own scroll
    context, which silently breaks the sticky header row below. The horizontal
    scroller is only needed where the table actually outgrows the viewport, so it
    is switched on at the narrow breakpoint instead. */
 .tablewrap{overscroll-behavior-x:contain}
-table{width:100%;border-collapse:collapse}
+/* A plain dark tint, not a solid fill: an opaque table only ever let the
+   floating art show in whatever margin happened to sit beside it, and now
+   that the table paints edge to edge (above), there is no margin left for
+   that art to hide in either way — it's visible under every row, full
+   width. No blur on purpose: blurring only the table made the art crisp at
+   the page edges and muddy under the rows, two textures on one page.
+   Legibility comes from the tint's own opacity, not from smearing the art
+   into mush. */
+table{
+  width:100%;border-collapse:collapse;
+  background:color-mix(in srgb, var(--canvas) 82%, transparent);
+}
 thead th{
   /* --head-h is measured from the real header, so this never drifts when the
      filter row wraps to two lines. */
-  position:sticky;top:var(--head-h,0px);background:var(--canvas);z-index:10;text-align:left;
+  position:sticky;top:var(--head-h,0px);z-index:10;text-align:left;
+  background:color-mix(in srgb, var(--canvas) 92%, transparent);
   font-size:12px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;
   color:var(--steel);border-bottom:1px solid var(--hairline-strong);
   white-space:nowrap;padding:0;
@@ -134,6 +242,13 @@ thead th button{
 }
 thead th button:hover{background:var(--surface);color:var(--ink)}
 thead th svg{width:12px;height:12px;opacity:.85}
+/* main lost its own side padding above so the table's tint paints edge to
+   edge; this puts that inset back, but only on the outer cells, so it
+   reads as margin rather than a gap the background shows through. */
+thead th:first-child button{padding-left:24px}
+thead th:last-child button{padding-right:24px}
+td:first-child{padding-left:24px}
+td:last-child{padding-right:24px}
 tbody tr{border-bottom:1px solid var(--hairline-soft);cursor:pointer}
 tbody tr:hover{background:var(--surface-soft)}
 tbody tr:focus-visible{outline:2px solid var(--primary);outline-offset:-2px}
@@ -149,12 +264,16 @@ td.plain .raw{color:var(--steel)}
   font-weight:500;background:var(--tint-gray);color:var(--on-tint);white-space:nowrap;
 }
 /* Keyed on a data attribute, not a class: mechanism names contain dots
-   ("skills.sh"), and a dot in a class attribute starts a second class. */
-.pill[data-m="marketplace"]{background:var(--tint-lavender)}
-.pill[data-m="skills.sh"]{background:var(--tint-sky)}
-.pill[data-m="local"]{background:var(--tint-mint)}
-.pill[data-m="unknown"]{background:var(--tint-peach)}
-.pill[data-m="mcp"]{background:var(--tint-rose)}
+   ("skills.sh"), and a dot in a class attribute starts a second class.
+   Colored text on the tint, not neutral ink — the same move the Activation
+   column already uses for "needs starting", so the tag actually pops
+   instead of reading as another shade of the same grey against a page
+   that's no longer a flat opaque surface behind it. */
+.pill[data-m="marketplace"]{background:var(--tint-lavender);color:var(--tag-indigo)}
+.pill[data-m="skills.sh"]{background:var(--tint-sky);color:var(--primary)}
+.pill[data-m="local"]{background:var(--tint-mint);color:var(--success)}
+.pill[data-m="unknown"]{background:var(--tint-peach);color:var(--tag-warning-on-tint)}
+.pill[data-m="mcp"]{background:var(--tint-rose);color:var(--tag-error-on-tint)}
 .state{font-size:13px;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
 .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
 .s-rest{color:var(--stone)}
@@ -163,7 +282,23 @@ td.plain .raw{color:var(--steel)}
 .chev{color:var(--stone)}
 tbody tr:hover .chev{color:var(--primary)}
 .chev svg{width:16px;height:16px}
-.loading-row{padding:32px 12px;text-align:center;color:var(--stone);font-size:13px}
+/* Skeleton rows mirror the real row shape (name + sub, pill, two-line blurb,
+   author, activation, update) rather than a spinner, so the layout doesn't
+   jump once real data lands. */
+.skel td{padding:16px 12px}
+.skel-bar{
+  display:block;height:13px;border-radius:4px;background:var(--hairline-soft);
+  position:relative;overflow:hidden;
+}
+/* transform-only sweep (compositor, not paint) instead of an animated
+   background-position, which repaints every frame */
+.skel-bar::after{
+  content:"";position:absolute;inset:0;transform:translateX(-100%);
+  background:linear-gradient(90deg,transparent,var(--hairline-strong),transparent);
+  animation:skel-shimmer 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion:reduce){.skel-bar::after{animation:none}}
+@keyframes skel-shimmer{to{transform:translateX(100%)}}
 .empty{padding:80px 24px;text-align:center;color:var(--stone)}
 .empty b{display:block;color:var(--ink);font-size:16px;margin-bottom:6px;font-weight:600}
 
@@ -197,7 +332,7 @@ h3{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--steel
 ol.subs{margin:0;padding:0;list-style:none}
 ol.subs li{
   background:var(--surface-soft);border:1px solid var(--hairline);
-  border-radius:var(--r-md);padding:10px 14px 10px 42px;margin-bottom:6px;position:relative;
+  border-radius:var(--r-lg);padding:10px 14px 10px 42px;margin-bottom:6px;position:relative;
 }
 ol.subs li::before{
   content:attr(data-n);position:absolute;left:14px;top:10px;color:var(--stone);
@@ -241,14 +376,14 @@ ul.pack .pack-install{grid-area:4/1/5/3;margin-top:6px;justify-self:start;
 .packnote{color:var(--stone);font-size:13px;margin:0 0 10px}
 .cmd{
   display:block;background:var(--code-bg);border:1px solid var(--hairline);
-  border-radius:var(--r-md);padding:10px 13px;margin:6px 0;color:var(--code-ink);
+  border-radius:var(--r-sm);padding:10px 13px;margin:6px 0;color:var(--code-ink);
   font-family:var(--mono);font-size:12.5px;overflow-x:auto;white-space:pre;
 }
 .note{color:var(--stone);font-size:13px;margin:8px 0 0}
 #mynote{
   width:100%;min-height:70px;resize:vertical;font:14px/1.5 var(--sans);
   color:var(--charcoal);background:var(--surface);border:1px solid var(--hairline-strong);
-  border-radius:var(--r-md);padding:10px 12px;
+  border-radius:var(--r-lg);padding:10px 14px;
 }
 #mynote:focus-visible{outline:2px solid var(--primary);outline-offset:1px}
 .hasnote{color:var(--primary);margin-left:4px}
@@ -271,7 +406,9 @@ a{color:var(--primary)}
 
 /* ── responsive ─────────────────────────────────────────────────────────── */
 @media (max-width:900px){
-  header{padding:14px 16px 0} main{padding:0 16px 64px}
+  header{padding:14px 16px 0} main{padding:0 0 64px}
+  thead th:first-child button,td:first-child{padding-left:16px}
+  thead th:last-child button,td:last-child{padding-right:16px}
   thead th{top:auto;position:static}
   .tablewrap{overflow-x:auto}
   .col-author,.col-act{display:none}
@@ -291,10 +428,17 @@ a{color:var(--primary)}
 </head>
 <body>
 
+<div class="bg-float" aria-hidden="true"></div>
+
 <header>
   <div class="top">
-    <h1>Skillview</h1>
-    <span class="count" id="count" aria-live="polite"></span>
+    <div class="brand-block">
+      <div class="brand-line">
+        <h1 class="brand">Skill<span class="accent">view</span></h1>
+        <span class="count" id="count" aria-live="polite"></span>
+      </div>
+      <p class="tagline">Every skill, plugin, and MCP server installed on this machine, in one table.</p>
+    </div>
     <span class="spacer"></span>
     <button id="theme" class="icon-btn" aria-label="Switch to dark theme"></button>
     <button id="describe">Generate descriptions</button>
@@ -316,8 +460,8 @@ a{color:var(--primary)}
 
 <main>
   <div class="tablewrap">
-    <table><thead><tr id="head"></tr></thead><tbody id="rows">
-      <tr><td colspan="7" class="loading-row">Loading…</td></tr>
+    <table><thead><tr id="head"></tr></thead><tbody id="rows" aria-busy="true">
+      <!-- Skeleton rows, replaced by real data as soon as /api/items answers. -->
     </tbody></table>
   </div>
   <div class="empty" id="empty" hidden></div>
@@ -384,6 +528,7 @@ async function load(url = "/api/items") {
   $("#describe").disabled = !CLI;
   $("#describe").title = CLI ? "" : "The claude CLI is not on PATH";
   buildFilters(); render();
+  $("#rows").removeAttribute("aria-busy");
 }
 
 function buildFilters() {
@@ -410,6 +555,18 @@ function visible() {
 }
 
 /* ── render ────────────────────────────────────────────────────────────── */
+function renderSkeleton() {
+  const widths = [70, 55, 90, 60, 50, 40];
+  $("#rows").innerHTML = Array.from({ length: 7 }, () =>
+    `<tr class="skel"><td class="name"><span class="skel-bar" style="width:${widths[0]}%"></span></td>
+      <td><span class="skel-bar" style="width:${widths[1]}%"></span></td>
+      <td><span class="skel-bar" style="width:${widths[2]}%"></span></td>
+      <td><span class="skel-bar" style="width:${widths[3]}%"></span></td>
+      <td><span class="skel-bar" style="width:${widths[4]}%"></span></td>
+      <td><span class="skel-bar" style="width:${widths[5]}%"></span></td>
+      <td></td></tr>`).join("");
+}
+
 function render() {
   $("#views").innerHTML = Object.keys(VIEWS).map(v =>
     `<button role="tab" aria-selected="${v === VIEW}" data-v="${esc(v)}">${esc(v)}
@@ -716,6 +873,7 @@ $("#describe").onclick = async () => {
   load();
 };
 
+renderSkeleton();
 load();
 </script>
 </body>
