@@ -21,6 +21,7 @@ Nothing shows them together. So things get installed, forgotten, and then sit un
 - **How to actually use it.** Every sub-command a plugin ships — bundled skills, slash commands, agents, hooks, MCP servers — listed as numbered one-liners.
 - **What's gone stale**, across every mechanism, in one refresh. One network call per source repo.
 - **What you didn't install.** A pack ships 13 skills and you took 3? It shows the other 10.
+- **What you never actually used.** A count and a last-used date per item, read back out of Claude Code's own session transcripts, plus a **Never used** view. That view is the cull list.
 - **Who wrote it** — derived from whether an upstream exists, so your own skills are correctly marked as yours to maintain.
 - **Can I use this right now?** Fires automatically, needs a slash command, or needs something started first — with the exact command.
 
@@ -57,6 +58,7 @@ This is genuinely optional. If the CLI is missing or not signed in, the dashboar
 | **Author** | who wrote it — derived from whether an upstream source exists, never from a configured name |
 | **Surface** | which agents actually have it installed |
 | **Activation** | *auto* (fires itself) · *manual* (you type the command) · *needs starting* (something must be installed or running first) |
+| **Used** | how many times it has been invoked, and how long ago — or an em-dash for nothing recorded |
 | **Update** | up to date · update available · no upstream · unknown |
 
 Click **View** on any row for the full picture: every sub-command as a numbered one-liner, prerequisites with their exact commands, install path, source, and the command that updates it.
@@ -90,9 +92,20 @@ All of that lives in one file, [`updater.py`](updater.py), so you can audit the 
 
 Plugin updates change files on disk but the running Claude Code session keeps the old copy, so those report **restart required** rather than claiming success.
 
+## Usage counts — where they come from
+
+The **Used** column and the **Never used** view read one local file, `~/.claude/skill-usage/usage.json`. Skillview does not produce that file and does not instrument anything: every `Skill` invocation is already recorded in Claude Code's own session transcripts, so the tally is derived retroactively by a separate script outside this repo. No hook ships here, and nothing new is recorded on your machine because Skillview is installed. If the file is absent, the column reads as blank and the table is otherwise unchanged.
+
+Four limits, all real:
+
+- **Only formal invocations are counted.** A skill whose guidance the model follows without calling the `Skill` tool leaves no trace.
+- **The record starts when your transcripts start.** Claude Code deletes sessions older than `cleanupPeriodDays` (30 by default). Anything before your oldest retained transcript is gone and cannot be recovered.
+- **Blank is not zero.** It means "nothing recorded in the transcripts scanned", which is a weaker claim.
+- **Some skills are rare by design.** A skill written to fire only on an explicit ask *should* read low. Zero is a reason to check the trigger wording, not an instruction to delete. The column reports; you judge.
+
 ## What it deliberately doesn't do
 
-It doesn't track usage, manage dependencies, or edit skills. It reads, reports, and — if you ask it to — runs the ecosystem's own update command.
+It doesn't measure usage itself, manage dependencies, or edit skills. It reads, reports, and — if you ask it to — runs the ecosystem's own update command.
 
 ## Honest limits
 
@@ -110,6 +123,7 @@ Nothing is hardcoded to a user or a path. Locations come from `$HOME` and `CLAUD
 ~/.claude/plugins/known_marketplaces.json  their source repos
 ~/.agents/.skill-lock.json                 skills.sh installs
 ~/.claude/skills/<name>/SKILL.md           everything else
+~/.claude/skill-usage/usage.json           invocation counts, if present
 ```
 
 Any of these being absent is normal — each is read independently, and a machine with none of them shows an empty table rather than an error.
@@ -121,6 +135,7 @@ app.py            HTTP shim — routes to pure functions, nothing else
 inventory.py      filesystem: read every mechanism into one row shape
 upstream.py       network: update status per source repo
 describe.py       subprocess: claude CLI → cached descriptions
+usage.py          read-only: joins the local invocation tally onto the rows
 updater.py        the only code that can change anything. Off by default
 ui.html           the whole frontend, vanilla, no CDN
 test_inventory.py python3 test_inventory.py

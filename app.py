@@ -24,6 +24,7 @@ import inventory
 import notes
 import updater
 import upstream
+import usage
 
 HERE = Path(__file__).parent
 CONFIG = json.loads((HERE / "config.json").read_text(encoding="utf-8")) if (HERE / "config.json").exists() else {}
@@ -38,13 +39,15 @@ UPDATES = ("--enable-updates" in sys.argv
 
 
 def items(with_upstream=False):
+    """Returns (rows, usage_summary) — the tally's own metadata rides along
+    because a stale or missing usage.json has to be visible in the UI."""
     rows = inventory.inventory()
     if with_upstream:
         rows = upstream.check(rows)
     else:
         for r in rows:
             r["update"], r["update_command"], r["catalog"] = "", "", []
-    return describe.apply(rows)
+    return usage.apply(describe.apply(rows))
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -86,10 +89,10 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(img)))
             self.end_headers()
             self.wfile.write(img)
-        elif self.path == "/api/items":
-            self._send({"items": items(), "cli": describe.available(), "updates": UPDATES})
-        elif self.path == "/api/refresh":
-            self._send({"items": items(with_upstream=True), "cli": describe.available(), "updates": UPDATES})
+        elif self.path in ("/api/items", "/api/refresh"):
+            rows, used = items(with_upstream=self.path.endswith("refresh"))
+            self._send({"items": rows, "cli": describe.available(),
+                        "updates": UPDATES, "usage": used})
         elif self.path.startswith("/api/catalog"):
             q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
             repo, path = q.get("repo", [""])[0], q.get("path", [""])[0]
@@ -168,8 +171,13 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     if "--scan" in sys.argv:          # headless sanity check, no browser needed
-        for r in items(with_upstream="--net" in sys.argv):
-            print(f"{r['name']:28} {r['mechanism']:12} {r.get('update', ''):16} {r['plain'][:60]}")
+        rows, used = items(with_upstream="--net" in sys.argv)
+        for r in rows:
+            n = (r["usage"] or {}).get("count", 0)
+            print(f"{r['name']:28} {r['mechanism']:12} {n or '-':>4}  "
+                  f"{r.get('update', ''):16} {r['plain'][:52]}")
+        if used["unmatched"]:
+            print(f"\nused but not installed: {', '.join(used['unmatched'])}")
         return
     try:
         server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)

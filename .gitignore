@@ -19,6 +19,7 @@ scratch_*.py
 TODO.md
 PRD.md
 promo-drafts.md
+skillview-usage-handoff.md
 
 # Screenshots — any capture of a real dashboard shows real installed skills.
 # docs/ is the exception: those are curated, filtered to third-party skills

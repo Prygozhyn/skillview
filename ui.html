@@ -403,6 +403,10 @@ ul.pack .pack-install{grid-area:4/1/5/3;margin-top:6px;justify-self:start;
 .err-line{color:var(--error);font-weight:500;margin:10px 0 0}
 #uplog .cmd{max-height:220px;overflow:auto;white-space:pre-wrap;font-size:12px}
 a{color:var(--primary)}
+.footnote{margin:14px 24px 0;font-size:12.5px;color:var(--stone);max-width:78ch}
+.col-used{white-space:nowrap}
+.col-used .n{font-variant-numeric:tabular-nums;font-weight:500;color:var(--ink)}
+.col-used .ago{color:var(--stone);font-size:12px;margin-left:6px}
 
 /* ── responsive ─────────────────────────────────────────────────────────── */
 @media (max-width:900px){
@@ -411,7 +415,7 @@ a{color:var(--primary)}
   thead th:last-child button,td:last-child{padding-right:16px}
   thead th{top:auto;position:static}
   .tablewrap{overflow-x:auto}
-  .col-author,.col-act{display:none}
+  .col-author,.col-act,.col-used{display:none}
   input[type=search]{flex:1 1 100%}
 }
 @media (max-width:600px){
@@ -465,6 +469,7 @@ a{color:var(--primary)}
     </tbody></table>
   </div>
   <div class="empty" id="empty" hidden></div>
+  <p class="footnote" id="usagenote" hidden></p>
 </main>
 
 <div class="scrim" id="scrim"></div>
@@ -483,17 +488,19 @@ const ICON = {
 const COLS = [
   ["name","Name",""],["mechanism","Source","col-source"],
   ["plain","What it does for you",""],["author","Author","col-author"],
-  ["activation","Activation","col-act"],["update","Update",""],
+  ["activation","Activation","col-act"],["usage","Used","col-used"],
+  ["update","Update",""],
 ];
 const VIEWS = {
   "Everything":       () => true,
   "Plugins":          r => r.mechanism === "marketplace",
   "Yours":            r => r.is_local,
   "Needs setup":      r => r.activation === "needs starting",
+  "Never used":       r => !r.usage,
   "Update available": r => r.update === "update available",
 };
 let ITEMS = [], VIEW = "Everything", SORT = {key:"name", dir:1}, CLI = true,
-    UPDATES = false, NOTES = {}, LAST_FOCUS = null, CURRENT_PACK_ROW = null;
+    UPDATES = false, NOTES = {}, USAGE = {}, LAST_FOCUS = null, CURRENT_PACK_ROW = null;
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
@@ -516,7 +523,7 @@ async function load(url = "/api/items") {
   if (url.includes("refresh")) { btn.disabled = true; btn.textContent = "Checking…"; }
   try {
     const d = await (await fetch(url)).json();
-    ITEMS = d.items || []; CLI = d.cli; UPDATES = !!d.updates;
+    ITEMS = d.items || []; CLI = d.cli; UPDATES = !!d.updates; USAGE = d.usage || {};
     // Independent of the inventory fetch — notes are user state, not a
     // property of the row, so they're joined here rather than server-side.
     try { NOTES = (await (await fetch("/api/notes")).json()).notes || {}; }
@@ -549,14 +556,21 @@ function visible() {
     (!mech || r.mechanism === mech) && (!act || r.activation === act) && (!au || r.author === au) &&
     (!q || [r.name, r.author, r.plain, r.description, r.source_repo].join(" ").toLowerCase().includes(q))
   ).sort((a, b) => {
-    const k = SORT.key, x = (a[k] ?? "").toString().toLowerCase(), y = (b[k] ?? "").toString().toLowerCase();
+    const k = SORT.key;
+    // Usage is an object, and sorting it as text would order every row by the
+    // string "[object Object]". Sort on the count, never-used last either way.
+    if (k === "usage") {
+      const n = r => r.usage ? r.usage.count : -1;
+      return (n(b) - n(a)) * SORT.dir;
+    }
+    const x = (a[k] ?? "").toString().toLowerCase(), y = (b[k] ?? "").toString().toLowerCase();
     return x < y ? -SORT.dir : x > y ? SORT.dir : 0;
   });
 }
 
 /* ── render ────────────────────────────────────────────────────────────── */
 function renderSkeleton() {
-  const widths = [70, 55, 90, 60, 50, 40];
+  const widths = [70, 55, 90, 60, 50, 35, 40];
   $("#rows").innerHTML = Array.from({ length: 7 }, () =>
     `<tr class="skel"><td class="name"><span class="skel-bar" style="width:${widths[0]}%"></span></td>
       <td><span class="skel-bar" style="width:${widths[1]}%"></span></td>
@@ -564,6 +578,7 @@ function renderSkeleton() {
       <td><span class="skel-bar" style="width:${widths[3]}%"></span></td>
       <td><span class="skel-bar" style="width:${widths[4]}%"></span></td>
       <td><span class="skel-bar" style="width:${widths[5]}%"></span></td>
+      <td><span class="skel-bar" style="width:${widths[6]}%"></span></td>
       <td></td></tr>`).join("");
 }
 
@@ -600,10 +615,34 @@ function render() {
       <td class="col-author">${esc(r.author || "—")}</td>
       <td class="col-act"><span class="state ${r.activation === "auto" ? "s-rest" : "s-act"}">
         ${r.activation === "auto" ? "" : '<span class="dot"></span>'}${esc(r.activation)}</span></td>
+      <td class="col-used">${usedCell(r.usage)}</td>
       <td><span class="state ${upClass(r.update)}">${esc(r.update || "—")}</span></td>
       <td class="chev">${ICON.chev}</td>
     </tr>`;
   }).join("");
+  renderUsageNote();
+}
+/* Invocations, from Claude Code's own transcripts. A blank is "nothing
+   recorded", not proof of never — the record starts at your oldest transcript
+   still on disk, and Claude Code deletes old ones on a schedule — so the
+   dash gets a title saying so rather than reading as a hard zero. */
+function usedCell(u) {
+  if (!u) return '<span class="s-rest" title="No invocation recorded in the retained transcripts">—</span>';
+  return `<span class="n">${u.count}×</span><span class="ago">${esc(ago(u.last_used))}</span>`;
+}
+function ago(day) {
+  const d = Math.floor((Date.now() - Date.parse(day + "T00:00:00Z")) / 864e5);
+  return !isFinite(d) ? "" : d <= 0 ? "today" : d === 1 ? "yesterday"
+    : d < 30 ? `${d}d ago` : d < 365 ? `${Math.floor(d / 30)}mo ago` : `${Math.floor(d / 365)}y ago`;
+}
+function renderUsageNote() {
+  const el = $("#usagenote"), gone = USAGE.unmatched || [];
+  const bits = [];
+  if (USAGE.collected) bits.push(`Usage counted from Claude Code transcripts, last collected ${esc(USAGE.collected)}.`);
+  else bits.push("No usage tally found — run <code>~/.claude/skill-usage/collect.py</code> to build one.");
+  if (gone.length) bits.push(`${gone.length} recorded ${gone.length === 1 ? "skill is" : "skills are"} no longer installed: ${gone.map(esc).join(", ")}.`);
+  el.innerHTML = bits.join(" ");
+  el.hidden = false;
 }
 const bytes = n => n >= 1e9 ? (n / 1e9).toFixed(1) + " GB"
   : n >= 1e6 ? (n / 1e6).toFixed(1) + " MB"
