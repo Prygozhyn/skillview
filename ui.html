@@ -640,7 +640,7 @@ function renderUsageNote() {
   const bits = [];
   if (USAGE.collected) bits.push(`Usage counted from Claude Code transcripts, last collected ${esc(USAGE.collected)}.`);
   else bits.push("No usage tally found — run <code>~/.claude/skill-usage/collect.py</code> to build one.");
-  if (gone.length) bits.push(`${gone.length} recorded ${gone.length === 1 ? "skill is" : "skills are"} no longer installed: ${gone.map(esc).join(", ")}.`);
+  if (gone.length) bits.push(`${gone.length} recorded ${gone.length === 1 ? "skill isn't" : "skills aren't"} in this table — uninstalled since, or built into Claude Code rather than installed: ${gone.map(esc).join(", ")}.`);
   el.innerHTML = bits.join(" ");
   el.hidden = false;
 }

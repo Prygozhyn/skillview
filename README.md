@@ -96,11 +96,12 @@ Plugin updates change files on disk but the running Claude Code session keeps th
 
 The **Used** column and the **Never used** view read one local file, `~/.claude/skill-usage/usage.json`. Skillview does not produce that file and does not instrument anything: every `Skill` invocation is already recorded in Claude Code's own session transcripts, so the tally is derived retroactively by a separate script outside this repo. No hook ships here, and nothing new is recorded on your machine because Skillview is installed. If the file is absent, the column reads as blank and the table is otherwise unchanged.
 
-Four limits, all real:
+Five limits, all real:
 
 - **Only formal invocations are counted.** A skill whose guidance the model follows without calling the `Skill` tool leaves no trace.
 - **The record starts when your transcripts start.** Claude Code deletes sessions older than `cleanupPeriodDays` (30 by default). Anything before your oldest retained transcript is gone and cannot be recovered.
 - **Blank is not zero.** It means "nothing recorded in the transcripts scanned", which is a weaker claim.
+- **Some counted skills are not in the table.** Claude Code's own built-in skills are invoked through the same tool and land in the tally, but they ship with the harness rather than being installed, so nothing here has a row for them. They are listed under the table alongside genuinely uninstalled items, and the note does not claim to tell you which is which.
 - **Some skills are rare by design.** A skill written to fire only on an explicit ask *should* read low. Zero is a reason to check the trigger wording, not an instruction to delete. The column reports; you judge.
 
 ## What it deliberately doesn't do

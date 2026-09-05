@@ -177,7 +177,8 @@ def main():
             print(f"{r['name']:28} {r['mechanism']:12} {n or '-':>4}  "
                   f"{r.get('update', ''):16} {r['plain'][:52]}")
         if used["unmatched"]:
-            print(f"\nused but not installed: {', '.join(used['unmatched'])}")
+            print("\nrecorded but not in the table "
+                  f"(uninstalled, or built in): {', '.join(used['unmatched'])}")
         return
     try:
         server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)

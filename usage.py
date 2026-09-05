@@ -47,6 +47,13 @@ def apply(rows):
     A plugin-scoped key rolls up to its plugin's row rather than falling back
     to the bare name: "anthropic-skills:log" is not necessarily your own "log"
     skill, and attributing one to the other would be worse than reporting neither.
+
+    "unmatched" means the key hit no row, which happens for two different
+    reasons: the item was uninstalled after it was used, or it was never
+    installed at all — Claude Code's own built-in skills are invoked through
+    the same tool and land in the tally without ever appearing in an inventory.
+    Callers must not report unmatched keys as "uninstalled". No built-in
+    denylist is kept here on purpose; it would go stale every release.
     """
     by_name = {r["name"]: r for r in rows}
     unmatched = []
